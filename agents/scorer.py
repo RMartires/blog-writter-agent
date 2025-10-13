@@ -2,8 +2,31 @@ from typing import List, Dict
 import textstat
 import re
 import json
+from pydantic import BaseModel, Field
 from agents.lib.openrouter_wrapper import OpenRouterLLM
 import config
+
+
+# Define Pydantic models for structured output
+class CategoryScore(BaseModel):
+    """Score and feedback for a single category"""
+    score: int = Field(..., description="Score for this category")
+    feedback: str = Field(..., description="Specific feedback for this category")
+
+
+class BlogScoringResponse(BaseModel):
+    """Complete structured response for blog scoring"""
+    readability: CategoryScore = Field(..., description="Readability score (0-25)")
+    seo_optimization: CategoryScore = Field(..., description="SEO optimization score (0-25)")
+    content_quality: CategoryScore = Field(..., description="Content quality score (0-20)")
+    engagement: CategoryScore = Field(..., description="Engagement score (0-15)")
+    structure_format: CategoryScore = Field(..., description="Structure & format score (0-15)")
+    improvement_suggestions: List[str] = Field(
+        ..., 
+        min_length=5,
+        max_length=5,
+        description="Exactly 5 concrete, actionable suggestions"
+    )
 
 
 class BlogScorer:
@@ -29,6 +52,11 @@ class BlogScorer:
             max_retries=config.API_MAX_RETRIES,
             retry_delay=config.API_RETRY_DELAY
         )
+        
+        # Structured output not reliably supported with OpenRouter wrapper
+        # Using JSON parsing with strict validation instead
+        self.structured_llm = None
+        print("ℹ️  Using JSON parsing with strict validation for scoring")
     
     def score_blog(
         self, 
@@ -46,6 +74,9 @@ class BlogScorer:
             
         Returns:
             Dictionary containing scores, feedback, and improvement suggestions
+            
+        Raises:
+            Exception: If unable to get valid scoring after all retry attempts
         """
         # Calculate rule-based metrics first
         metrics = self._calculate_metrics(blog_content, target_keywords)
@@ -53,15 +84,50 @@ class BlogScorer:
         # Create scoring prompt
         prompt = self._create_scoring_prompt(blog_content, topic, target_keywords, metrics)
         
-        # Get LLM scoring
-        try:
-            response = self.llm.invoke(prompt)
-            scores = self._parse_scoring_response(response, metrics)
-            return scores
-        except Exception as e:
-            print(f"Error during scoring: {e}")
-            # Return default scores if LLM fails
-            return self._default_scores(metrics)
+        # Try multiple strategies to get structured output
+        max_attempts = 5
+        last_error = None
+        
+        for attempt in range(max_attempts):
+            try:
+                # Use JSON parsing with strict validation
+                print(f"🎯 Attempt {attempt + 1}/{max_attempts}: Using JSON parsing...")
+                response = self.llm.invoke(prompt)
+                
+                # Extract content from response
+                response_content = response.content if hasattr(response, 'content') else str(response)
+                
+                # Debug: show first part of response
+                response_preview = response_content[:150].replace('\n', ' ')
+                print(f"   Response preview: {response_preview}...")
+                
+                scores = self._parse_scoring_response(response_content, metrics)
+                print(f"✅ Successfully scored with JSON parsing")
+                return scores
+                    
+            except Exception as e:
+                last_error = e
+                error_msg = str(e)[:200]  # Truncate long error messages
+                print(f"❌ Attempt {attempt + 1}/{max_attempts} failed: {error_msg}")
+                
+                if attempt < max_attempts - 1:
+                    # Retry with progressively simpler prompts
+                    if attempt == 0:
+                        print("🔄 Retrying with same prompt...")
+                    elif attempt == 1:
+                        print("🔄 Retrying with simplified prompt...")
+                        prompt = self._create_simplified_prompt(blog_content, topic, target_keywords, metrics)
+                    elif attempt == 2:
+                        print("🔄 Retrying with ultra-simple prompt...")
+                        prompt = self._create_ultra_simple_prompt(blog_content, metrics)
+                    else:
+                        print(f"🔄 Final retry with ultra-simple prompt...")
+        
+        # If we get here, all attempts failed - raise exception instead of returning defaults
+        raise Exception(
+            f"Failed to get valid scoring response after {max_attempts} attempts. "
+            f"Last error: {last_error}"
+        )
     
     def _calculate_metrics(self, blog_content: str, target_keywords: List[str]) -> Dict:
         """Calculate rule-based metrics for the blog"""
@@ -88,9 +154,7 @@ class BlogScorer:
         """Create the scoring prompt for the LLM"""
         keywords_str = ", ".join([f"'{kw}'" for kw in target_keywords]) if target_keywords else "None provided"
         
-        prompt = f"""
-<systemMessage>        
-You are an expert blog content evaluator. Score this blog post across 5 categories.
+        prompt = f"""You are an expert blog content evaluator. You must respond ONLY with valid JSON, no other text.
 
 BLOG TOPIC: {topic}
 TARGET KEYWORDS: {keywords_str}
@@ -174,97 +238,189 @@ RESPONSE FORMAT (JSON):
     ]
 }}
 
-Provide ONLY the JSON response, no additional text.
-</systemMessage>
-"""
+CRITICAL: Your response must be ONLY valid JSON. Do not include any explanatory text, markdown formatting, or code blocks. Start your response with {{ and end with }}."""
 
         return prompt
     
-    def _parse_scoring_response(self, response: str, metrics: Dict) -> Dict:
-        """Parse the LLM scoring response into structured format"""
-        try:
-            # Extract JSON from response
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                scores_data = json.loads(json_match.group())
-            else:
-                scores_data = json.loads(response)
-            
-            # Calculate total score
-            total_score = (
-                scores_data['readability']['score'] +
-                scores_data['seo_optimization']['score'] +
-                scores_data['content_quality']['score'] +
-                scores_data['engagement']['score'] +
-                scores_data['structure_format']['score']
-            )
-            
-            # Build structured result
-            result = {
-                "total_score": total_score,
-                "category_scores": {
-                    "readability": {
-                        "score": scores_data['readability']['score'],
-                        "max": 25
-                    },
-                    "seo_optimization": {
-                        "score": scores_data['seo_optimization']['score'],
-                        "max": 25
-                    },
-                    "content_quality": {
-                        "score": scores_data['content_quality']['score'],
-                        "max": 20
-                    },
-                    "engagement": {
-                        "score": scores_data['engagement']['score'],
-                        "max": 15
-                    },
-                    "structure_format": {
-                        "score": scores_data['structure_format']['score'],
-                        "max": 15
-                    }
-                },
-                "feedback": {
-                    "readability": scores_data['readability']['feedback'],
-                    "seo_optimization": scores_data['seo_optimization']['feedback'],
-                    "content_quality": scores_data['content_quality']['feedback'],
-                    "engagement": scores_data['engagement']['feedback'],
-                    "structure_format": scores_data['structure_format']['feedback']
-                },
-                "improvement_suggestions": scores_data.get('improvement_suggestions', []),
-                "passes_threshold": False,  # Will be set by iteration manager
-                "metrics": metrics
-            }
-            
-            return result
-            
-        except Exception as e:
-            print(f"Error parsing scoring response: {e}")
-            print(f"Response was: {response[:500]}...")
-            return self._default_scores(metrics)
+    def _create_simplified_prompt(
+        self, 
+        blog_content: str, 
+        topic: str, 
+        target_keywords: List[str],
+        metrics: Dict
+    ) -> str:
+        """Create a simplified prompt that's more likely to get valid JSON"""
+        keywords_str = ", ".join([f"'{kw}'" for kw in target_keywords]) if target_keywords else "None"
+        
+        # Truncate blog content if too long
+        max_content_length = 3000
+        if len(blog_content) > max_content_length:
+            blog_content = blog_content[:max_content_length] + "...[truncated]"
+        
+        prompt = f"""
+<systemMessage>        
+Score this blog post. Topic: {topic}. Keywords: {keywords_str}
+
+Metrics: Word Count={metrics['word_count']}, Flesch={metrics['flesch_score']:.1f}, Keyword Density={metrics['keyword_density']:.2f}%
+
+Blog Content:
+{blog_content}
+
+---
+
+Provide scores as JSON:
+{{
+    "readability": {{"score": 0-25, "feedback": "text"}},
+    "seo_optimization": {{"score": 0-25, "feedback": "text"}},
+    "content_quality": {{"score": 0-20, "feedback": "text"}},
+    "engagement": {{"score": 0-15, "feedback": "text"}},
+    "structure_format": {{"score": 0-15, "feedback": "text"}},
+    "improvement_suggestions": ["suggestion1", "suggestion2", "suggestion3", "suggestion4", "suggestion5"]
+}}
+
+RESPOND WITH ONLY VALID JSON. NO OTHER TEXT.
+</systemMessage>
+"""
+        
+        return prompt
     
-    def _default_scores(self, metrics: Dict) -> Dict:
-        """Return default scores if LLM scoring fails"""
+    def _create_ultra_simple_prompt(self, blog_content: str, metrics: Dict) -> str:
+        """Ultra-simple prompt as last resort"""
+        # Very short content sample
+        content_sample = blog_content[:1000] + "..." if len(blog_content) > 1000 else blog_content
+        
+        prompt = f"""       
+<systemMessage>        
+Rate this blog content with JSON only:
+
+{content_sample}
+
+Required JSON format:
+{{
+    "readability": {{"score": 20, "feedback": "Good clarity"}},
+    "seo_optimization": {{"score": 20, "feedback": "Keywords present"}},
+    "content_quality": {{"score": 15, "feedback": "Informative"}},
+    "engagement": {{"score": 12, "feedback": "Engaging"}},
+    "structure_format": {{"score": 12, "feedback": "Well structured"}},
+    "improvement_suggestions": ["tip1", "tip2", "tip3", "tip4", "tip5"]
+}}
+
+Respond ONLY with valid JSON matching this exact structure.
+</systemMessage>
+"""
+        
+        return prompt
+    
+    def _format_structured_response(self, response: BlogScoringResponse, metrics: Dict) -> Dict:
+        """Format Pydantic model response into our expected dict format"""
+        total_score = (
+            response.readability.score +
+            response.seo_optimization.score +
+            response.content_quality.score +
+            response.engagement.score +
+            response.structure_format.score
+        )
+        
         return {
-            "total_score": 50,
+            "total_score": total_score,
             "category_scores": {
-                "readability": {"score": 12, "max": 25},
-                "seo_optimization": {"score": 12, "max": 25},
-                "content_quality": {"score": 10, "max": 20},
-                "engagement": {"score": 8, "max": 15},
-                "structure_format": {"score": 8, "max": 15}
+                "readability": {"score": response.readability.score, "max": 25},
+                "seo_optimization": {"score": response.seo_optimization.score, "max": 25},
+                "content_quality": {"score": response.content_quality.score, "max": 20},
+                "engagement": {"score": response.engagement.score, "max": 15},
+                "structure_format": {"score": response.structure_format.score, "max": 15}
             },
             "feedback": {
-                "readability": "Unable to score - LLM error",
-                "seo_optimization": "Unable to score - LLM error",
-                "content_quality": "Unable to score - LLM error",
-                "engagement": "Unable to score - LLM error",
-                "structure_format": "Unable to score - LLM error"
+                "readability": response.readability.feedback,
+                "seo_optimization": response.seo_optimization.feedback,
+                "content_quality": response.content_quality.feedback,
+                "engagement": response.engagement.feedback,
+                "structure_format": response.structure_format.feedback
             },
-            "improvement_suggestions": ["Retry scoring with a different model"],
-            "passes_threshold": False,
+            "improvement_suggestions": response.improvement_suggestions,
+            "passes_threshold": False,  # Will be set by iteration manager
             "metrics": metrics
         }
+    
+    def _parse_scoring_response(self, response: str, metrics: Dict) -> Dict:
+        """Parse the LLM scoring response with strict validation"""
+        # Remove markdown code blocks if present
+        response = response.strip()
+        response = re.sub(r'^```json\s*', '', response, flags=re.IGNORECASE)
+        response = re.sub(r'^```\s*', '', response)
+        response = re.sub(r'\s*```$', '', response)
+        
+        # Remove common preamble text that LLMs sometimes add
+        response = re.sub(r'^(Here is the JSON|Here\'s the JSON|JSON response):\s*', '', response, flags=re.IGNORECASE)
+        
+        # Extract JSON from response - look for the outermost braces
+        json_match = re.search(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', response, re.DOTALL)
+        if not json_match:
+            # Try a more permissive pattern for nested JSON
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        
+        if not json_match:
+            raise ValueError(f"No JSON object found in response. Response start: {response[:200]}...")
+        
+        json_str = json_match.group()
+        
+        try:
+            scores_data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON syntax: {e}. JSON string start: {json_str[:200]}...")
+        
+        # Strict validation of required fields
+        required_fields = ['readability', 'seo_optimization', 'content_quality', 'engagement', 'structure_format']
+        for field in required_fields:
+            if field not in scores_data:
+                raise ValueError(f"Missing required field: {field}")
+            if 'score' not in scores_data[field]:
+                raise ValueError(f"Missing score in {field}")
+            if 'feedback' not in scores_data[field]:
+                raise ValueError(f"Missing feedback in {field}")
+            
+            # Validate score is an integer
+            if not isinstance(scores_data[field]['score'], int):
+                raise ValueError(f"Score in {field} must be an integer, got {type(scores_data[field]['score'])}")
+        
+        if 'improvement_suggestions' not in scores_data:
+            raise ValueError("Missing improvement_suggestions")
+        
+        if not isinstance(scores_data['improvement_suggestions'], list):
+            raise ValueError("improvement_suggestions must be a list")
+        
+        # Calculate total score
+        total_score = (
+            scores_data['readability']['score'] +
+            scores_data['seo_optimization']['score'] +
+            scores_data['content_quality']['score'] +
+            scores_data['engagement']['score'] +
+            scores_data['structure_format']['score']
+        )
+        
+        # Build structured result
+        result = {
+            "total_score": total_score,
+            "category_scores": {
+                "readability": {"score": scores_data['readability']['score'], "max": 25},
+                "seo_optimization": {"score": scores_data['seo_optimization']['score'], "max": 25},
+                "content_quality": {"score": scores_data['content_quality']['score'], "max": 20},
+                "engagement": {"score": scores_data['engagement']['score'], "max": 15},
+                "structure_format": {"score": scores_data['structure_format']['score'], "max": 15}
+            },
+            "feedback": {
+                "readability": scores_data['readability']['feedback'],
+                "seo_optimization": scores_data['seo_optimization']['feedback'],
+                "content_quality": scores_data['content_quality']['feedback'],
+                "engagement": scores_data['engagement']['feedback'],
+                "structure_format": scores_data['structure_format']['feedback']
+            },
+            "improvement_suggestions": scores_data['improvement_suggestions'],
+            "passes_threshold": False,  # Will be set by iteration manager
+            "metrics": metrics
+        }
+        
+        return result
     
     # Utility methods
     
