@@ -2,7 +2,7 @@ from typing import List, Dict
 import textstat
 import re
 import json
-from agents.openrouter_wrapper import OpenRouterLLM
+from agents.lib.openrouter_wrapper import OpenRouterLLM
 import config
 
 
@@ -55,7 +55,7 @@ class BlogScorer:
         
         # Get LLM scoring
         try:
-            response = self.llm.predict(prompt)
+            response = self.llm.invoke(prompt)
             scores = self._parse_scoring_response(response, metrics)
             return scores
         except Exception as e:
@@ -88,7 +88,9 @@ class BlogScorer:
         """Create the scoring prompt for the LLM"""
         keywords_str = ", ".join([f"'{kw}'" for kw in target_keywords]) if target_keywords else "None provided"
         
-        prompt = f"""You are an expert blog content evaluator. Score this blog post across 5 categories.
+        prompt = f"""
+<systemMessage>        
+You are an expert blog content evaluator. Score this blog post across 5 categories.
 
 BLOG TOPIC: {topic}
 TARGET KEYWORDS: {keywords_str}
@@ -172,7 +174,9 @@ RESPONSE FORMAT (JSON):
     ]
 }}
 
-Provide ONLY the JSON response, no additional text."""
+Provide ONLY the JSON response, no additional text.
+</systemMessage>
+"""
 
         return prompt
     

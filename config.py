@@ -11,9 +11,9 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_MODEL = "deepseek/deepseek-chat-v3.1:free"  # Free tier model
 
 # Iteration and Scoring Configuration
-MAX_ITERATIONS = 5  # Maximum number of write-score-rewrite cycles
+MAX_ITERATIONS = 2  # Maximum number of write-score-rewrite cycles
 MIN_SCORE_THRESHOLD = 80  # Stop if this score is reached (0-100)
-SAVE_ALL_ITERATIONS = False  # If True, save all iteration versions; if False, save only final
+SAVE_ALL_ITERATIONS = True  # If True, save all iteration versions; if False, save only final
 VERBOSE_OUTPUT = True  # Show detailed scoring feedback during iterations
 
 # Score Category Weights (must sum to 1.0)
@@ -26,7 +26,7 @@ SCORE_WEIGHTS = {
 }
 
 # Rate Limiting Configuration
-API_MIN_REQUEST_INTERVAL = 2.0  # Minimum seconds between API requests (throttling)
+API_MIN_REQUEST_INTERVAL = 5.0  # Minimum seconds between API requests (throttling)
 API_MAX_RETRIES = 3  # Maximum number of retries on rate limit errors
 API_RETRY_DELAY = 20  # Seconds to wait before retrying on 429 rate limit error
 

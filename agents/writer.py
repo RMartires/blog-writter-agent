@@ -2,7 +2,7 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.schema import Document
 from typing import List
-from agents.openrouter_wrapper import OpenRouterLLM
+from agents.lib.openrouter_wrapper import OpenRouterLLM
 import config
 
 
@@ -53,7 +53,9 @@ class WriterAgent:
         # Create prompt template
         prompt = PromptTemplate(
             input_variables=["topic", "context", "style"],
-            template="""You are an expert blog writer. Write a comprehensive, engaging blog post on the following topic.
+            template="""
+<systemMessage>            
+You are an expert blog writer. Write a comprehensive, engaging blog post on the following topic.
 
 Topic: {topic}
 
@@ -74,7 +76,7 @@ Requirements:
 - Use proper markdown formatting throughout
 - Ensure the content is SEO-friendly with natural keyword usage
 
-Blog Post:
+</systemMessage>
 """
         )
         
@@ -122,7 +124,10 @@ Blog Post:
         # Create rewrite prompt
         prompt = PromptTemplate(
             input_variables=["topic", "original_blog", "feedback", "context", "keywords", "iteration"],
-            template="""You are an expert blog writer tasked with improving a blog post based on detailed feedback.
+            template="""
+
+<systemMessage>            
+You are an expert blog writer tasked with improving a blog post based on detailed feedback.
 
 TOPIC: {topic}
 TARGET KEYWORDS: {keywords}
@@ -163,7 +168,7 @@ IMPORTANT:
 - Write in a professional, engaging tone
 - Use proper markdown formatting throughout
 
-REWRITTEN BLOG POST:
+</systemMessage>
 """
         )
         

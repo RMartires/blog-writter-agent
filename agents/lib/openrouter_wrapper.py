@@ -24,7 +24,7 @@ class OpenRouterLLM(ChatOpenAI):
         api_key: str, 
         model: str, 
         temperature: float = 0.7,
-        min_request_interval: float = 20.0,
+        min_request_interval: float = 2.0,
         max_retries: int = 3,
         retry_delay: int = 20,
         **kwargs
@@ -72,45 +72,6 @@ class OpenRouterLLM(ChatOpenAI):
         """Check if error is a rate limit error (429)"""
         error_str = str(error)
         return "429" in error_str or "rate limit" in error_str.lower()
-    
-    def predict(self, text: str, **kwargs) -> str:
-        """
-        Generate a response with automatic retry on rate limit errors
-        
-        Args:
-            text: The prompt to send to the LLM
-            **kwargs: Additional arguments
-            
-        Returns:
-            Generated text response
-        """
-        for attempt in range(self.max_retries):
-            try:
-                # Throttle to prevent hitting rate limits
-                self._throttle()
-                
-                # Make the API call using parent class method
-                response = super().predict(text, **kwargs)
-                return response
-                
-            except Exception as e:
-                if self._is_rate_limit_error(e):
-                    if attempt < self.max_retries - 1:
-                        logger.warning(
-                            f"⚠️  Rate limit hit (429). Waiting {self.retry_delay}s before retry "
-                            f"(attempt {attempt + 1}/{self.max_retries})..."
-                        )
-                        time.sleep(self.retry_delay)
-                        continue
-                    else:
-                        logger.error(f"❌ Rate limit exceeded after {self.max_retries} attempts")
-                        raise
-                else:
-                    # Non-rate-limit error, raise immediately
-                    logger.error(f"❌ API Error: {e}")
-                    raise
-        
-        raise Exception("Max retries exceeded")
     
     def invoke(self, input: Any, **kwargs) -> Any:
         """

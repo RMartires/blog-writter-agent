@@ -165,7 +165,7 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
 if __name__ == "__main__":
     # User will edit this line to test different topics and keywords
     generate_blog(
-        topic="The Future of AI in Healthcare",
-        target_keywords=["AI healthcare", "artificial intelligence", "medical AI", "healthcare technology"]
+        topic="Product Bundling Guide to Increase AOV",
+        target_keywords=["Product Bundling", "AOV", "Ecommerce"]
     )
 
