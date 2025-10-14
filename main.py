@@ -2,15 +2,16 @@ from agents.researcher import ResearchAgent
 from agents.rag_manager import RAGManager
 from agents.writer import WriterAgent
 from agents.scorer import BlogScorer
-from agents.iteration_manager import IterationManager
+from agents.planner import PlannerAgent
 import config
 import os
+import re
 from typing import List
 
 
 def generate_blog(topic: str, target_keywords: List[str] = None):
     """
-    Generate a blog post on the given topic using AI agents with iterative scoring
+    Generate a blog post using planner-based section-by-section generation
     
     Args:
         topic: The blog post topic
@@ -22,6 +23,7 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     # Set default keywords if none provided
     if target_keywords is None:
         target_keywords = []
+    
     # Validate API keys
     if not config.OPENROUTER_API_KEY:
         raise ValueError("OPENROUTER_API_KEY not found in environment variables")
@@ -29,24 +31,25 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
         raise ValueError("TAVILY_API_KEY not found in environment variables")
     
     print(f"\n{'='*60}")
-    print(f"AI Blog Writer Agent")
+    print(f"AI Blog Writer Agent (Planner-Based)")
     print(f"{'='*60}")
     print(f"Topic: {topic}")
     print(f"Model: {config.OPENROUTER_MODEL}")
     if target_keywords:
         keywords_str = ", ".join(target_keywords)
         print(f"Target Keywords: {keywords_str}")
-    print(f"Max Iterations: {config.MAX_ITERATIONS}")
-    print(f"Score Threshold: {config.MIN_SCORE_THRESHOLD}")
+    print(f"Section Score Threshold: 70/100")
     print(f"{'='*60}\n")
     
     # Initialize agents
     researcher = ResearchAgent(config.TAVILY_API_KEY)
     rag_manager = RAGManager(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
     writer = WriterAgent(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
+    planner = PlannerAgent(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
+    scorer = BlogScorer(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
     
     # Step 1: Research
-    print(f"🔍 Step 1/5: Researching '{topic}'...")
+    print(f"🔍 Step 1/7: Researching '{topic}'...")
     research_data = researcher.search(
         f"{topic}",
         max_results=5
@@ -59,44 +62,160 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     print(f"✓ Found {len(research_data)} relevant sources")
     
     # Step 2: Build RAG knowledge base
-    print(f"\n📚 Step 2/5: Building knowledge base...")
+    print(f"\n📚 Step 2/7: Building knowledge base...")
     rag_manager.ingest_research(research_data)
     print("✓ Knowledge base ready")
     
-    # Step 3: Retrieve context
-    print(f"\n🎯 Step 3/7: Retrieving relevant context...")
-    context_docs = rag_manager.retrieve_context(topic, k=4)
-    print(f"✓ Retrieved {len(context_docs)} context chunks")
+    # Step 3: Create blog plan
+    print(f"\n📋 Step 3/7: Planning blog structure...")
     
-    # Step 4-6: Iterative writing and scoring
-    print(f"\n✍️  Step 4/7: Iterative writing and scoring...")
+    # Create research summary for planner
+    research_summary = "\n".join([
+        f"- {r['title']}: {r['content'][:200]}..." 
+        for r in research_data[:3]
+    ])
     
-    # Initialize scorer and iteration manager
-    scorer = BlogScorer(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
-    iteration_manager = IterationManager(config)
-    
-    # Run iterations
     try:
-        result = iteration_manager.run_iterations(
+        plan = planner.create_plan(
             topic=topic,
             target_keywords=target_keywords,
-            context_docs=context_docs,
-            writer=writer,
-            scorer=scorer
+            research_summary=research_summary
         )
         
-        final_blog = result['best_blog']
-        final_score = result['best_score']
-        iteration_count = result['iteration_count']
-        best_iteration = result['best_iteration']
-        score_details = result['final_score_details']
-        
-        print(f"\n🎉 Completed {iteration_count} iteration(s)")
-        print(f"📊 Best Score: {final_score}/100 (from iteration {best_iteration})")
-        
+        print(f"✓ Plan created: '{plan.title}'")
+        print(f"  Intro guidance: {plan.intro[:100] if plan.intro else 'None'}...")
+        print(f"  Sections ({len(plan.sections)}):")
+        for i, section in enumerate(plan.sections, 1):
+            desc = f" - {section.description[:60]}..." if section.description else ""
+            print(f"    {i}. {section.heading}{desc}")
     except Exception as e:
-        print(f"❌ Error during iterative writing: {e}")
+        print(f"❌ Error creating plan: {e}")
         return None
+    
+    # Step 4: Generate introduction
+    print(f"\n✍️  Step 4/7: Generating introduction...")
+    
+    # Retrieve general context for intro
+    intro_context = rag_manager.retrieve_context(topic, k=3)
+    
+    try:
+        intro_content = writer.generate_intro(
+            topic=topic,
+            plan=plan,
+            context_docs=intro_context
+        )
+        word_count = BlogScorer.count_words(intro_content)
+        print(f"✓ Introduction complete ({word_count} words)")
+    except Exception as e:
+        print(f"❌ Error generating introduction: {e}")
+        return None
+    
+    # Step 5: Sequential section generation with scoring
+    print(f"\n✍️  Step 5/7: Generating sections sequentially...")
+    
+    section_contents = []
+    section_scores = []
+    SECTION_THRESHOLD = 70  # Lower threshold for individual sections
+    
+    for i, section in enumerate(plan.sections, 1):
+        print(f"\n  📝 Section {i}/{len(plan.sections)}: {section.heading}")
+        if section.description:
+            print(f"      Description: {section.description[:80]}...")
+        
+        # Retrieve section-specific context
+        section_query = f"{topic} {section.heading}"
+        section_context = rag_manager.retrieve_context(section_query, k=3)
+        
+        # Generate section with awareness of previous sections
+        try:
+            section_content = writer.generate_section(
+                section=section,
+                topic=topic,
+                context_docs=section_context,
+                previous_sections=section_contents
+            )
+            word_count = BlogScorer.count_words(section_content)
+            
+            # Validate that the section contains the expected heading
+            expected_heading = f"## {section.heading}"
+            if expected_heading not in section_content:
+                print(f"     ⚠️  Warning: Generated section may not have correct heading")
+                print(f"     Expected: {expected_heading}")
+                # Try to extract what heading was actually generated
+                actual_headings = re.findall(r'^##\s+(.+)$', section_content, re.MULTILINE)
+                if actual_headings:
+                    print(f"     Found: ## {actual_headings[0]}")
+            
+            print(f"     ✓ Generated ({word_count} words)")
+        except Exception as e:
+            print(f"     ❌ Error generating section: {e}")
+            return None
+        
+        # Score the section
+        print(f"     📊 Scoring section...")
+        try:
+            score_result = scorer.score_blog(
+                blog_content=section_content,
+                topic=f"{topic} - {section.heading}",
+                target_keywords=target_keywords
+            )
+            section_score = score_result['total_score']
+            section_scores.append(section_score)
+            
+            print(f"     Score: {section_score}/100", end="")
+            
+            # Improve if below threshold
+            if section_score < SECTION_THRESHOLD:
+                print(f" (below {SECTION_THRESHOLD}) - Improving...")
+                try:
+                    section_content = writer.improve_section(
+                        section_content=section_content,
+                        section_heading=section.heading,
+                        score_feedback=score_result,
+                        context_docs=section_context
+                    )
+                    
+                    # Re-score improved section
+                    improved_score_result = scorer.score_blog(
+                        blog_content=section_content,
+                        topic=f"{topic} - {section.heading}",
+                        target_keywords=target_keywords
+                    )
+                    improved_score = improved_score_result['total_score']
+                    section_scores[-1] = improved_score
+                    
+                    print(f"     ✓ Improved to {improved_score}/100")
+                except Exception as e:
+                    print(f"     ⚠️  Improvement failed: {e}, using original")
+            else:
+                print(f" ✓")
+        
+        except Exception as e:
+            print(f"     ⚠️  Scoring failed: {e}, skipping score")
+            section_scores.append(0)
+        
+        # Add to collection
+        section_contents.append(section_content)
+    
+    # Step 6: Stitch content together
+    print(f"\n🔗 Step 6/7: Stitching content together...")
+    
+    final_blog_parts = []
+    
+    # Add introduction
+    final_blog_parts.append(intro_content)
+    
+    # Add all sections
+    final_blog_parts.extend(section_contents)
+    
+    # Combine
+    final_blog = "\n\n".join(final_blog_parts)
+    
+    # Calculate average section score
+    avg_section_score = sum(section_scores) / len(section_scores) if section_scores else 0
+    
+    print(f"✓ Blog assembled")
+    print(f"  Average section score: {avg_section_score:.1f}/100")
     
     # Step 7: Save output
     print(f"\n💾 Step 7/7: Saving output...")
@@ -110,53 +229,52 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     safe_topic = topic.replace(' ', '_').replace('/', '_')[:30]
     filename = f"{output_dir}/blog_{safe_topic}.md"
     
+    # Calculate final metrics
+    total_word_count = BlogScorer.count_words(final_blog)
+    flesch_score = BlogScorer.calculate_flesch_score(final_blog)
+    keyword_density = BlogScorer.calculate_keyword_density(final_blog, target_keywords)
+    
     # Write blog post with sources and metadata
     with open(filename, 'w', encoding='utf-8') as f:
-        f.write(f"# {topic}\n\n")
+        f.write(f"# {plan.title}\n\n")
         f.write(final_blog)
         f.write("\n\n---\n\n")
         
         # Add metadata section
         f.write("## Metadata\n\n")
-        f.write(f"- **Final Score**: {final_score}/100\n")
-        f.write(f"- **Iterations**: {iteration_count}\n")
-        f.write(f"- **Best Iteration**: {best_iteration}\n")
+        f.write(f"- **Average Section Score**: {avg_section_score:.1f}/100\n")
+        f.write(f"- **Total Sections**: {len(section_contents)}\n")
         if target_keywords:
             keywords_str = ", ".join(target_keywords)
             f.write(f"- **Target Keywords**: {keywords_str}\n")
-        f.write(f"- **Word Count**: {score_details['metrics']['word_count']}\n")
-        f.write(f"- **Readability (Flesch)**: {score_details['metrics']['flesch_score']:.1f}\n")
-        f.write(f"- **Keyword Density**: {score_details['metrics']['keyword_density']:.2f}%\n")
+        f.write(f"- **Word Count**: {total_word_count}\n")
+        f.write(f"- **Readability (Flesch)**: {flesch_score:.1f}\n")
+        f.write(f"- **Keyword Density**: {keyword_density:.2f}%\n")
         
-        # Add category scores
-        f.write("\n### Category Scores\n\n")
-        for category, score_data in score_details['category_scores'].items():
-            score = score_data['score']
-            max_score = score_data['max']
-            percentage = (score / max_score * 100) if max_score > 0 else 0
-            category_name = category.replace('_', ' ').title()
-            f.write(f"- **{category_name}**: {score}/{max_score} ({percentage:.0f}%)\n")
+        # Add individual section scores
+        f.write("\n### Section Scores\n\n")
+        for i, (section, score) in enumerate(zip(plan.sections, section_scores), 1):
+            f.write(f"{i}. **{section.heading}**: {score}/100\n")
         
         f.write("\n---\n\n## Sources\n\n")
         
         # Add source citations
-        for doc in context_docs:
-            title = doc.metadata.get('title', 'Untitled')
-            url = doc.metadata.get('source', '#')
+        for r in research_data:
+            title = r.get('title', 'Untitled')
+            url = r.get('url', '#')
             f.write(f"- [{title}]({url})\n")
     
     print(f"✓ Saved to: {filename}")
     
     # Print statistics
-    word_count = score_details['metrics']['word_count']
     print(f"\n{'='*60}")
     print(f"📊 Final Statistics:")
-    print(f"   - Word count: {word_count}")
-    print(f"   - Final score: {final_score}/100")
-    print(f"   - Iterations completed: {iteration_count}")
+    print(f"   - Word count: {total_word_count}")
+    print(f"   - Average section score: {avg_section_score:.1f}/100")
+    print(f"   - Number of sections: {len(section_contents)}")
     print(f"   - Sources used: {len(research_data)}")
-    print(f"   - Context chunks: {len(context_docs)}")
-    print(f"   - Flesch reading ease: {score_details['metrics']['flesch_score']:.1f}")
+    print(f"   - Flesch reading ease: {flesch_score:.1f}")
+    print(f"   - Keyword density: {keyword_density:.2f}%")
     print(f"{'='*60}\n")
     
     return filename

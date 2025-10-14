@@ -1,8 +1,9 @@
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.schema import Document
-from typing import List
+from typing import List, Optional
 from agents.lib.openrouter_wrapper import OpenRouterLLM
+from agents.models import BlogPlan, BlogSection
 import config
 
 
@@ -240,4 +241,250 @@ IMPORTANT:
             formatted_parts.append(f"[Source {i}: {title}]\n{content}\n")
         
         return "\n".join(formatted_parts)
+    
+    def generate_intro(
+        self,
+        topic: str,
+        plan: BlogPlan,
+        context_docs: List[Document]
+    ) -> str:
+        """
+        Generate introduction section based on blog plan
+        
+        Args:
+            topic: Blog post topic
+            plan: The complete blog plan with structure
+            context_docs: Retrieved context documents from RAG
+            
+        Returns:
+            Generated introduction as markdown string
+        """
+        # Format context from retrieved documents
+        context = self._format_context(context_docs)
+        
+        # Format the plan structure for context
+        sections_preview = "\n".join([f"- {section.heading}" for section in plan.sections])
+        intro_guidance = plan.intro if plan.intro else "Hook the reader and introduce the topic"
+        
+        # Create prompt template
+        prompt = PromptTemplate(
+            input_variables=["topic", "title", "intro_guidance", "sections_preview", "context"],
+            template="""
+<systemMessage>
+You are an expert blog writer creating an engaging introduction.
+
+TOPIC: {topic}
+BLOG TITLE: {title}
+
+INTRODUCTION GUIDANCE: {intro_guidance}
+
+UPCOMING SECTIONS:
+{sections_preview}
+
+RESEARCH CONTEXT:
+{context}
+
+YOUR TASK:
+Write a compelling introduction (2-3 paragraphs, 150-250 words) that:
+1. Opens with a strong hook to grab attention
+2. Introduces the topic and its importance
+3. Previews what the reader will learn (reference the sections)
+4. Sets an engaging, professional tone
+5. Uses natural keyword integration
+
+Requirements:
+- Use markdown formatting
+- Write in second person ("you") where appropriate
+- Be conversational yet professional
+- Create curiosity about the content ahead
+
+Write ONLY the introduction content, no headings.
+</systemMessage>
+"""
+        )
+        
+        # Create and run the chain
+        try:
+            chain = LLMChain(llm=self.llm, prompt=prompt)
+            result = chain.run(
+                topic=topic,
+                title=plan.title,
+                intro_guidance=intro_guidance,
+                sections_preview=sections_preview,
+                context=context
+            )
+            return result.strip()
+        except Exception as e:
+            print(f"Error generating introduction: {e}")
+            raise
+    
+    def generate_section(
+        self,
+        section: BlogSection,
+        topic: str,
+        context_docs: List[Document],
+        previous_sections: List[str] = None
+    ) -> str:
+        """
+        Generate content for a single blog section
+        
+        Args:
+            section: BlogSection object with heading and description
+            topic: Overall blog topic
+            context_docs: Retrieved context documents relevant to this section
+            previous_sections: List of previously generated section contents for context
+            
+        Returns:
+            Generated section content as markdown string
+        """
+        # Format context from retrieved documents
+        context = self._format_context(context_docs)
+        
+        # Format previous sections for context awareness
+        previous_context = ""
+        if previous_sections:
+            previous_context = "\n\nPREVIOUSLY COVERED:\n" + "\n---\n".join(previous_sections[-2:])  # Last 2 sections
+        
+        section_guidance = section.description if section.description else "Provide comprehensive coverage of this topic"
+        
+        # Create prompt template
+        prompt = PromptTemplate(
+            input_variables=["topic", "heading", "section_guidance", "context", "previous_context"],
+            template="""
+<systemMessage>
+You are an expert blog writer creating a specific section of a blog post.
+
+OVERALL TOPIC: {topic}
+
+CRITICAL: You MUST use this EXACT heading as your H2 title:
+## {heading}
+
+SECTION GUIDANCE: {section_guidance}
+
+RESEARCH CONTEXT FOR THIS SECTION:
+{context}
+{previous_context}
+
+YOUR TASK:
+Write this section (250-350 words) with:
+1. Start with the EXACT section heading as H2: ## {heading}
+2. Provide comprehensive, valuable information specific to "{heading}"
+3. Use specific examples, data, or actionable tips
+4. Include subheadings (###) if needed for clarity
+5. Use bullet points or numbered lists where appropriate
+6. Maintain logical flow and connection with previous content
+7. Write in an engaging, professional tone
+8. Natural keyword integration
+
+CRITICAL REQUIREMENTS:
+- You MUST use the exact heading "## {heading}" - do NOT change it or create a different heading
+- Focus ONLY on the topic indicated by this heading
+- Use proper markdown formatting
+- Be informative and practical
+- Keep paragraphs concise (3-4 sentences)
+- Ensure content flows naturally from what was previously discussed
+- Do NOT repeat information from previous sections
+- Do NOT write about topics from previous sections
+
+Write the complete section starting with: ## {heading}
+</systemMessage>
+"""
+        )
+        
+        # Create and run the chain
+        try:
+            chain = LLMChain(llm=self.llm, prompt=prompt)
+            result = chain.run(
+                topic=topic,
+                heading=section.heading,
+                section_guidance=section_guidance,
+                context=context,
+                previous_context=previous_context
+            )
+            return result.strip()
+        except Exception as e:
+            print(f"Error generating section '{section.heading}': {e}")
+            raise
+    
+    def improve_section(
+        self,
+        section_content: str,
+        section_heading: str,
+        score_feedback: dict,
+        context_docs: List[Document]
+    ) -> str:
+        """
+        Improve a section based on scoring feedback (one pass only)
+        
+        Args:
+            section_content: The original section content to improve
+            section_heading: The heading of this section
+            score_feedback: Scoring feedback dictionary from BlogScorer
+            context_docs: Retrieved context documents for accuracy
+            
+        Returns:
+            Improved section content as markdown string
+        """
+        # Format context from retrieved documents
+        context = self._format_context(context_docs)
+        
+        # Format feedback
+        feedback_str = self._format_feedback(score_feedback)
+        
+        # Create improvement prompt
+        prompt = PromptTemplate(
+            input_variables=["section_heading", "section_content", "feedback", "context"],
+            template="""
+<systemMessage>
+You are an expert blog writer improving a section based on feedback.
+
+CRITICAL: You MUST keep this EXACT heading:
+## {section_heading}
+
+ORIGINAL SECTION CONTENT:
+{section_content}
+
+---
+
+SCORING FEEDBACK:
+{feedback}
+
+---
+
+RESEARCH CONTEXT (for accuracy):
+{context}
+
+---
+
+YOUR TASK:
+Rewrite this section to address ALL the feedback points above.
+
+CRITICAL REQUIREMENTS:
+1. You MUST use the EXACT heading: ## {section_heading} - do NOT change it
+2. Keep the same general topic focused on "{section_heading}"
+3. Fix all weaknesses identified in each category
+4. Implement improvement suggestions
+5. Enhance readability, SEO, and engagement
+6. Keep the section length appropriate (250-350 words)
+7. Ensure natural, professional tone
+8. Use proper markdown formatting
+
+Write the improved section starting with: ## {section_heading}
+</systemMessage>
+"""
+        )
+        
+        # Create and run the chain
+        try:
+            chain = LLMChain(llm=self.llm, prompt=prompt)
+            result = chain.run(
+                section_heading=section_heading,
+                section_content=section_content,
+                feedback=feedback_str,
+                context=context
+            )
+            return result.strip()
+        except Exception as e:
+            print(f"Error improving section '{section_heading}': {e}")
+            raise
 
