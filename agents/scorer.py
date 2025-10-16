@@ -32,13 +32,14 @@ class BlogScoringResponse(BaseModel):
 class BlogScorer:
     """Agent responsible for scoring blog posts on quality and SEO parameters"""
     
-    def __init__(self, openrouter_api_key: str, model: str):
+    def __init__(self, openrouter_api_key: str, model: str, session_id: str = None):
         """
         Initialize scorer agent with OpenRouter credentials
         
         Args:
             openrouter_api_key: OpenRouter API key
             model: Model name to use for scoring
+            session_id: Optional session ID for trace grouping
         """
         if not openrouter_api_key:
             raise ValueError("OpenRouter API key is required")
@@ -49,6 +50,7 @@ class BlogScorer:
             model=model,
             temperature=0.3,  # Lower temperature for more consistent scoring
             agent_name="ScorerAgent",
+            session_id=session_id,
             min_request_interval=config.API_MIN_REQUEST_INTERVAL,
             max_retries=config.API_MAX_RETRIES,
             retry_delay=config.API_RETRY_DELAY

@@ -9,13 +9,14 @@ import config
 class PlannerAgent:
     """Agent responsible for planning blog structure before writing"""
     
-    def __init__(self, openrouter_api_key: str, model: str):
+    def __init__(self, openrouter_api_key: str, model: str, session_id: str = None):
         """
         Initialize planner agent with OpenRouter credentials
         
         Args:
             openrouter_api_key: OpenRouter API key
             model: Model name to use for planning
+            session_id: Optional session ID for trace grouping
         """
         if not openrouter_api_key:
             raise ValueError("OpenRouter API key is required")
@@ -26,6 +27,7 @@ class PlannerAgent:
             model=model,
             temperature=0.5,  # Medium temperature for creative but structured planning
             agent_name="PlannerAgent",
+            session_id=session_id,
             min_request_interval=config.API_MIN_REQUEST_INTERVAL,
             max_retries=config.API_MAX_RETRIES,
             retry_delay=config.API_RETRY_DELAY

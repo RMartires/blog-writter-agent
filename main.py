@@ -9,8 +9,10 @@ import re
 import uuid
 from datetime import datetime
 from typing import List
+from langsmith import traceable
 
 
+@traceable(name="BlogGeneration")
 def generate_blog(topic: str, target_keywords: List[str] = None):
     """
     Generate a blog post using planner-based section-by-section generation
@@ -49,12 +51,12 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     print(f"LangSmith Tracing: Enabled")
     print(f"{'='*60}\n")
     
-    # Initialize agents
+    # Initialize agents with session ID for trace grouping
     researcher = ResearchAgent(config.TAVILY_API_KEY)
     rag_manager = RAGManager(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
-    writer = WriterAgent(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
-    planner = PlannerAgent(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
-    scorer = BlogScorer(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
+    writer = WriterAgent(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL, session_id=session_id)
+    planner = PlannerAgent(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL, session_id=session_id)
+    scorer = BlogScorer(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL, session_id=session_id)
     
     # Step 1: Research
     print(f"🔍 Step 1/7: Researching '{topic}'...")
