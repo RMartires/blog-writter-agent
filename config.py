@@ -8,7 +8,7 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # User will change this model manually as needed
-OPENROUTER_MODEL = "deepseek/deepseek-chat-v3.1:free"  # Free tier model
+OPENROUTER_MODEL = "openai/gpt-oss-20b:free"  # Free tier model
 
 # Iteration and Scoring Configuration
 MAX_ITERATIONS = 2  # Maximum number of write-score-rewrite cycles
