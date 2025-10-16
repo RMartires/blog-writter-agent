@@ -48,6 +48,7 @@ class BlogScorer:
             api_key=openrouter_api_key,
             model=model,
             temperature=0.3,  # Lower temperature for more consistent scoring
+            agent_name="ScorerAgent",
             min_request_interval=config.API_MIN_REQUEST_INTERVAL,
             max_retries=config.API_MAX_RETRIES,
             retry_delay=config.API_RETRY_DELAY

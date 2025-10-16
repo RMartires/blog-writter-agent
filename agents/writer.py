@@ -26,6 +26,7 @@ class WriterAgent:
             api_key=openrouter_api_key,
             model=model,
             temperature=0.7,
+            agent_name="WriterAgent",
             min_request_interval=config.API_MIN_REQUEST_INTERVAL,
             max_retries=config.API_MAX_RETRIES,
             retry_delay=config.API_RETRY_DELAY

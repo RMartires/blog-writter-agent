@@ -9,6 +9,7 @@ An AI-powered blog writing system that uses web research (Tavily API), RAG (Retr
 - 🤖 **Flexible AI Models**: Access multiple LLMs via OpenRouter (including free models)
 - 📝 **Quality Content**: Generates 1000-1500 word blog posts with proper structure
 - 📖 **Source Citations**: Automatically includes source references
+- 🔍 **Observability**: Built-in LangSmith integration for tracing and debugging
 
 ## Prerequisites
 
@@ -37,6 +38,11 @@ An AI-powered blog writing system that uses web research (Tavily API), RAG (Retr
    ```
    OPENROUTER_API_KEY=your_openrouter_key_here
    TAVILY_API_KEY=your_tavily_key_here
+   
+   # Optional: LangSmith for observability and debugging
+   LANGCHAIN_TRACING_V2=true
+   LANGCHAIN_API_KEY=your_langsmith_api_key_here
+   LANGCHAIN_PROJECT=blog-writer-agent
    ```
 
 ## Usage
@@ -166,14 +172,45 @@ Check your Tavily API key and internet connection.
 ### Model not available
 Some OpenRouter models require credits. Check available free models at https://openrouter.ai/models
 
+## LangSmith Observability
+
+The system includes built-in LangSmith integration for comprehensive observability:
+
+### What You Get
+- **Complete LLM Interaction Logs**: Every prompt and response is automatically logged
+- **Agent Identification**: See which agent (Writer, Planner, Scorer) made each call
+- **Session Tracking**: Group related interactions by session ID
+- **Performance Metrics**: Response times, token usage, and costs
+- **Error Tracking**: Automatic error logging and debugging information
+- **Visual Interface**: Web dashboard at https://smith.langchain.com
+
+### Setup (Optional)
+1. **Sign up for LangSmith** (free tier available): https://smith.langchain.com
+2. **Get your API key** from the LangSmith dashboard
+3. **Add to your `.env` file**:
+   ```
+   LANGCHAIN_TRACING_V2=true
+   LANGCHAIN_API_KEY=your_langsmith_api_key_here
+   LANGCHAIN_PROJECT=blog-writer-agent
+   ```
+
+### Viewing Traces
+- After running the blog generator, check the console output for session information
+- Visit https://smith.langchain.com to view detailed traces
+- Filter by session ID to see all interactions for a specific run
+- Analyze performance, debug issues, and optimize prompts
+
 ## Cost Estimates
 
 - **Tavily API**: Free tier includes 1,000 searches/month
 - **OpenRouter**: 
   - Free models: $0
   - Paid models: ~$0.01-0.10 per blog post (depending on model)
+- **LangSmith**: Free tier includes 1,000 traces/month
 
 ## License
 
 MIT License - Feel free to modify and use as needed.
 
+## Enter to venv
+source venv/bin/activate

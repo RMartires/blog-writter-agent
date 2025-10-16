@@ -3,6 +3,10 @@ from langchain.schema import BaseMessage, AIMessage
 from typing import List, Union, Any, Optional
 import time
 import logging
+import uuid
+from datetime import datetime
+from langsmith import traceable
+from pydantic import Field
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +22,8 @@ class OpenRouterLLM(ChatOpenAI):
     max_retries: int = 3
     retry_delay: int = 20
     last_request_time: Optional[float] = None
+    agent_name: str = Field(default="Unknown", description="Name of the agent using this LLM")
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Session ID for grouping related calls")
     
     def __init__(
         self, 
@@ -27,6 +33,8 @@ class OpenRouterLLM(ChatOpenAI):
         min_request_interval: float = 2.0,
         max_retries: int = 3,
         retry_delay: int = 20,
+        agent_name: str = "Unknown",
+        session_id: str = None,
         **kwargs
     ):
         """
@@ -39,6 +47,8 @@ class OpenRouterLLM(ChatOpenAI):
             min_request_interval: Minimum seconds between requests (throttling)
             max_retries: Maximum number of retries on rate limit errors
             retry_delay: Seconds to wait before retrying on rate limit (429)
+            agent_name: Name of the agent using this LLM (for LangSmith tracing)
+            session_id: Optional session ID for grouping related calls
             **kwargs: Additional arguments passed to ChatOpenAI
         """
         # Initialize parent ChatOpenAI
@@ -73,9 +83,10 @@ class OpenRouterLLM(ChatOpenAI):
         error_str = str(error)
         return "429" in error_str or "rate limit" in error_str.lower()
     
+    @traceable(name="OpenRouterLLM.invoke")
     def invoke(self, input: Any, **kwargs) -> Any:
         """
-        Invoke the LLM with messages (for chain compatibility)
+        Invoke the LLM with messages (for chain compatibility) with LangSmith tracing
         
         Args:
             input: Input to send to LLM
@@ -84,37 +95,53 @@ class OpenRouterLLM(ChatOpenAI):
         Returns:
             Response from LLM
         """
+        # Add metadata for LangSmith tracing
+        metadata = {
+            "agent_name": self.agent_name,
+            "session_id": self.session_id,
+            "model": self.model_name,
+            "temperature": self.temperature,
+            "method": "invoke"
+        }
+        
         for attempt in range(self.max_retries):
             try:
                 # Throttle to prevent hitting rate limits
                 self._throttle()
                 
+                # Log the interaction start
+                logger.info(f"🤖 {self.agent_name}: Starting LLM invoke call (attempt {attempt + 1})")
+                
                 # Make the API call using parent class method
                 response = super().invoke(input, **kwargs)
+                
+                # Log successful completion
+                logger.info(f"✅ {self.agent_name}: LLM invoke call completed successfully")
                 return response
                 
             except Exception as e:
                 if self._is_rate_limit_error(e):
                     if attempt < self.max_retries - 1:
                         logger.warning(
-                            f"⚠️  Rate limit hit (429). Waiting {self.retry_delay}s before retry "
+                            f"⚠️  {self.agent_name}: Rate limit hit (429). Waiting {self.retry_delay}s before retry "
                             f"(attempt {attempt + 1}/{self.max_retries})..."
                         )
                         time.sleep(self.retry_delay)
                         continue
                     else:
-                        logger.error(f"❌ Rate limit exceeded after {self.max_retries} attempts")
+                        logger.error(f"❌ {self.agent_name}: Rate limit exceeded after {self.max_retries} attempts")
                         raise
                 else:
                     # Non-rate-limit error, raise immediately
-                    logger.error(f"❌ API Error: {e}")
+                    logger.error(f"❌ {self.agent_name}: API Error: {e}")
                     raise
         
         raise Exception("Max retries exceeded")
     
+    @traceable(name="OpenRouterLLM._generate")
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         """
-        Override internal _generate method with retry logic
+        Override internal _generate method with retry logic and LangSmith tracing
         This is what LangChain actually calls when using chains like LLMChain
         
         Args:
@@ -126,30 +153,45 @@ class OpenRouterLLM(ChatOpenAI):
         Returns:
             Generated response
         """
+        # Add metadata for LangSmith tracing
+        metadata = {
+            "agent_name": self.agent_name,
+            "session_id": self.session_id,
+            "model": self.model_name,
+            "temperature": self.temperature,
+            "method": "_generate"
+        }
+        
         for attempt in range(self.max_retries):
             try:
                 # Throttle to prevent hitting rate limits
                 self._throttle()
                 
+                # Log the interaction start
+                logger.info(f"🤖 {self.agent_name}: Starting LLM call (attempt {attempt + 1})")
+                
                 # Make the API call using parent class method
                 response = super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                
+                # Log successful completion
+                logger.info(f"✅ {self.agent_name}: LLM call completed successfully")
                 return response
                 
             except Exception as e:
                 if self._is_rate_limit_error(e):
                     if attempt < self.max_retries - 1:
                         logger.warning(
-                            f"⚠️  Rate limit hit (429). Waiting {self.retry_delay}s before retry "
+                            f"⚠️  {self.agent_name}: Rate limit hit (429). Waiting {self.retry_delay}s before retry "
                             f"(attempt {attempt + 1}/{self.max_retries})..."
                         )
                         time.sleep(self.retry_delay)
                         continue
                     else:
-                        logger.error(f"❌ Rate limit exceeded after {self.max_retries} attempts")
+                        logger.error(f"❌ {self.agent_name}: Rate limit exceeded after {self.max_retries} attempts")
                         raise
                 else:
                     # Non-rate-limit error, raise immediately
-                    logger.error(f"❌ API Error: {e}")
+                    logger.error(f"❌ {self.agent_name}: API Error: {e}")
                     raise
         
         raise Exception("Max retries exceeded")

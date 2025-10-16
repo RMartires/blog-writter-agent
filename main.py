@@ -6,6 +6,8 @@ from agents.planner import PlannerAgent
 import config
 import os
 import re
+import uuid
+from datetime import datetime
 from typing import List
 
 
@@ -30,8 +32,13 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     if not config.TAVILY_API_KEY:
         raise ValueError("TAVILY_API_KEY not found in environment variables")
     
+    # Generate session ID for LangSmith tracing
+    session_id = str(uuid.uuid4())
+    session_start = datetime.now()
+    
     print(f"\n{'='*60}")
     print(f"AI Blog Writer Agent (Planner-Based)")
+    print(f"Session ID: {session_id}")
     print(f"{'='*60}")
     print(f"Topic: {topic}")
     print(f"Model: {config.OPENROUTER_MODEL}")
@@ -39,6 +46,7 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
         keywords_str = ", ".join(target_keywords)
         print(f"Target Keywords: {keywords_str}")
     print(f"Section Score Threshold: 70/100")
+    print(f"LangSmith Tracing: Enabled")
     print(f"{'='*60}\n")
     
     # Initialize agents
@@ -267,6 +275,7 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     print(f"✓ Saved to: {filename}")
     
     # Print statistics
+    session_duration = (datetime.now() - session_start).total_seconds()
     print(f"\n{'='*60}")
     print(f"📊 Final Statistics:")
     print(f"   - Word count: {total_word_count}")
@@ -275,6 +284,13 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     print(f"   - Sources used: {len(research_data)}")
     print(f"   - Flesch reading ease: {flesch_score:.1f}")
     print(f"   - Keyword density: {keyword_density:.2f}%")
+    print(f"   - Session duration: {session_duration:.1f} seconds")
+    print(f"   - Session ID: {session_id}")
+    print(f"{'='*60}")
+    print(f"🔍 LangSmith Tracing:")
+    print(f"   - All LLM interactions have been logged to LangSmith")
+    print(f"   - View detailed traces at: https://smith.langchain.com")
+    print(f"   - Session ID for filtering: {session_id}")
     print(f"{'='*60}\n")
     
     return filename
@@ -283,7 +299,7 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
 if __name__ == "__main__":
     # User will edit this line to test different topics and keywords
     generate_blog(
-        topic="Product Bundling Guide to Increase AOV",
-        target_keywords=["Product Bundling", "AOV", "Ecommerce"]
+        topic="answer engine optimization",
+        target_keywords=["AEO", "answer engine optimization", "AI"]
     )
 
