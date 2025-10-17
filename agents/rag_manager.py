@@ -46,7 +46,7 @@ class RAGManager:
         # Convert research data to LangChain Documents
         documents = []
         for item in research_data:
-            print(item)
+            # print(item)
             doc = Document(
                 page_content=item['content'],
                 metadata={

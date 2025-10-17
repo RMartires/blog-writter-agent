@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain.schema import BaseMessage, AIMessage
+from langchain.schema.runnable.config import RunnableConfig
 from typing import List, Union, Any, Optional
 import time
 import logging
@@ -96,13 +96,15 @@ class OpenRouterLLM(ChatOpenAI):
             Response from LLM
         """
         # Add metadata for LangSmith tracing
-        metadata = {
-            "agent_name": self.agent_name,
-            "session_id": self.session_id,
-            "model": self.model_name,
-            "temperature": self.temperature,
-            "method": "invoke"
-        }
+        config = RunnableConfig(
+            metadata = {
+                "agent_name": self.agent_name,
+                "session_id": self.session_id,
+                "model": self.model_name,
+                "temperature": self.temperature,
+                "method": "invoke"
+            }
+        )
         
         for attempt in range(self.max_retries):
             try:
@@ -113,7 +115,7 @@ class OpenRouterLLM(ChatOpenAI):
                 logger.info(f"🤖 {self.agent_name}: Starting LLM invoke call (attempt {attempt + 1})")
                 
                 # Make the API call using parent class method
-                response = super().invoke(input, **kwargs)
+                response = super().invoke(input, config=config)
                 
                 # Log successful completion
                 logger.info(f"✅ {self.agent_name}: LLM invoke call completed successfully")

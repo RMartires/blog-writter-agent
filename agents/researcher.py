@@ -56,7 +56,7 @@ class ResearchAgent:
             processed_results.append({
                 'title': result.get('title', 'Untitled'),
                 'url': result.get('url', ''),
-                'content': result.get('content', '') or result.get('raw_content', ''),
+                'content': result.get('raw_content', '') or result.get('content', ''),
                 'score': result.get('score', 0.0)
             })
         

@@ -81,8 +81,8 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
     
     # Create research summary for planner
     research_summary = "\n".join([
-        f"- {r['title']}: {r['content'][:200]}..." 
-        for r in research_data[:3]
+        f"- {r['title']}: {r['content']}" 
+        for r in research_data
     ])
     
     try:
