@@ -161,49 +161,6 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
             print(f"     ❌ Error generating section: {e}")
             return None
         
-        # Score the section
-        print(f"     📊 Scoring section...")
-        try:
-            score_result = scorer.score_blog(
-                blog_content=section_content,
-                topic=f"{topic} - {section.heading}",
-                target_keywords=target_keywords
-            )
-            section_score = score_result['total_score']
-            section_scores.append(section_score)
-            
-            print(f"     Score: {section_score}/100", end="")
-            
-            # Improve if below threshold
-            if section_score < SECTION_THRESHOLD:
-                print(f" (below {SECTION_THRESHOLD}) - Improving...")
-                try:
-                    section_content = writer.improve_section(
-                        section_content=section_content,
-                        section_heading=section.heading,
-                        score_feedback=score_result,
-                        context_docs=section_context
-                    )
-                    
-                    # Re-score improved section
-                    improved_score_result = scorer.score_blog(
-                        blog_content=section_content,
-                        topic=f"{topic} - {section.heading}",
-                        target_keywords=target_keywords
-                    )
-                    improved_score = improved_score_result['total_score']
-                    section_scores[-1] = improved_score
-                    
-                    print(f"     ✓ Improved to {improved_score}/100")
-                except Exception as e:
-                    print(f"     ⚠️  Improvement failed: {e}, using original")
-            else:
-                print(f" ✓")
-        
-        except Exception as e:
-            print(f"     ⚠️  Scoring failed: {e}, skipping score")
-            section_scores.append(0)
-        
         # Add to collection
         section_contents.append(section_content)
     

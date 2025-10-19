@@ -117,12 +117,13 @@ Create a comprehensive blog post structure with a clear outline of sections.
 
 REQUIREMENTS:
 1. Create a compelling title that includes the main keyword
-2. Plan 4-7 main sections that thoroughly cover the topic
-3. Each section should have a clear, descriptive heading
-4. Optionally provide a brief description of what each section should cover
-5. Ensure logical flow from introduction to conclusion
-6. Consider SEO - headings should be keyword-rich but natural
-7. Think about reader engagement - sections should build upon each other
+2. Plan how many sections are required for this blog, looking at the context
+3. Plan these sections that thoroughly cover the topic
+4. Each section should have a clear, descriptive heading
+5. Optionally provide a brief description of what each section should cover
+6. Ensure logical flow from introduction to conclusion
+7. Consider SEO - headings should be keyword-rich but natural
+8. Think about reader engagement - sections should build upon each other
 
 RESPONSE FORMAT (JSON):
 {{
