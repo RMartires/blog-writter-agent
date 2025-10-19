@@ -3,7 +3,7 @@ from langchain.prompts import PromptTemplate
 from langchain.schema import Document
 from typing import List, Optional
 from agents.lib.openrouter_wrapper import OpenRouterLLM
-from agents.models import BlogPlan, BlogSection, SectionPlan, SubSection
+from agents.models import BlogPlan, BlogSection, SubSection
 import config
 
 
@@ -442,7 +442,7 @@ Write the complete subsection starting with: ### {subsection_heading}
     
     def generate_section_with_subsections(
         self,
-        section_plan: SectionPlan,
+        section: BlogSection,
         topic: str,
         context_docs: List[Document],
         previous_sections: List[str] = None,
@@ -455,7 +455,7 @@ Write the complete subsection starting with: ### {subsection_heading}
         If no subsections, falls back to generate_section behavior.
         
         Args:
-            section_plan: SectionPlan object with heading, description, and optional subsections
+            section: BlogSection object with heading, description, and optional subsections
             topic: Overall blog topic
             context_docs: Retrieved context documents relevant to this section
             previous_sections: List of previously generated section contents for context
@@ -465,13 +465,7 @@ Write the complete subsection starting with: ### {subsection_heading}
             Generated section content as markdown string
         """
         # If no subsections, use existing generate_section logic
-        if not section_plan.subsections:
-            # Create a BlogSection object for compatibility
-            from agents.models import BlogSection
-            section = BlogSection(
-                heading=section_plan.heading,
-                description=section_plan.description
-            )
+        if not section.subsections:
             return self.generate_section(
                 section=section,
                 topic=topic,
@@ -480,24 +474,24 @@ Write the complete subsection starting with: ### {subsection_heading}
             )
         
         # Generate subsections individually
-        print(f"      📝 Generating {len(section_plan.subsections)} subsections...")
+        print(f"      📝 Generating {len(section.subsections)} subsections...")
         
         # Start with the main section heading
-        section_content = f"## {section_plan.heading}\n\n"
+        section_content = f"## {section.heading}\n\n"
         
         # Add section description if available
-        if section_plan.description:
-            section_content += f"{section_plan.description}\n\n"
+        if section.description:
+            section_content += f"{section.description}\n\n"
         
         # Generate each subsection
         subsection_contents = []
-        for i, subsection in enumerate(section_plan.subsections, 1):
-            print(f"        📝 Subsection {i}/{len(section_plan.subsections)}: {subsection.heading}")
+        for i, subsection in enumerate(section.subsections, 1):
+            print(f"        📝 Subsection {i}/{len(section.subsections)}: {subsection.heading}")
             
             # Retrieve subsection-specific context from RAG
             subsection_context = context_docs  # Default to section context
             if rag_manager:
-                subsection_query = f"{topic} {section_plan.heading} {subsection.heading}"
+                subsection_query = f"{topic} {section.heading} {subsection.heading}"
                 subsection_context = rag_manager.retrieve_context(subsection_query, k=3)
                 print(f"        🔍 Retrieved {len(subsection_context)} context docs for subsection")
             
@@ -507,7 +501,7 @@ Write the complete subsection starting with: ### {subsection_heading}
             try:
                 subsection_content = self.generate_subsection(
                     subsection=subsection,
-                    section_heading=section_plan.heading,
+                    section_heading=section.heading,
                     topic=topic,
                     context_docs=subsection_context,
                     previous_content=previous_content

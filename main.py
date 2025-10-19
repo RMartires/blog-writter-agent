@@ -98,6 +98,9 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
         for i, section in enumerate(plan.sections, 1):
             desc = f" - {section.description[:60]}..." if section.description else ""
             print(f"    {i}. {section.heading}{desc}")
+            if section.subsections:
+                for j, subsection in enumerate(section.subsections, 1):
+                    print(f"       {i}.{j}. {subsection.heading}")
     except Exception as e:
         print(f"❌ Error creating plan: {e}")
         return None
@@ -133,36 +136,19 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
         if section.description:
             print(f"      Description: {section.description[:80]}...")
         
-        # NEW: Section planning stage
-        print(f"      🎯 Planning section structure...")
+        if section.subsections:
+            print(f"      Subsections ({len(section.subsections)}):")
+            for j, subsection in enumerate(section.subsections, 1):
+                print(f"        {j}. {subsection.heading}")
+        
+        # Retrieve section-specific context
         section_query = f"{topic} {section.heading}"
         section_context = rag_manager.retrieve_context(section_query, k=3)
         
-        # Format context for section planning
-        research_context = "\n".join([
-            f"- {doc.metadata.get('title', 'Source')}: {doc.page_content}" 
-            for doc in section_context
-        ])
-        
-        try:
-            section_plan = planner.plan_section(
-                section=section,
-                topic=topic,
-                research_context=research_context
-            )
-            
-            if section_plan.subsections:
-                print(f"      Subsections planned: {len(section_plan.subsections)}")
-            else:
-                print(f"      No subsections needed - single flow section")
-        except Exception as e:
-            print(f"      ❌ Error planning section: {e}")
-            return None
-        
-        # Generate section using new method
+        # Generate section (with or without subsections)
         try:
             section_content = writer.generate_section_with_subsections(
-                section_plan=section_plan,
+                section=section,
                 topic=topic,
                 context_docs=section_context,
                 previous_sections=section_contents,

@@ -2,23 +2,17 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
-class BlogSection(BaseModel):
-    """Represents a single section in the blog plan"""
-    heading: str = Field(..., description="The heading/title for this section")
-    description: Optional[str] = Field(None, description="Optional brief description of what this section should cover")
-
-
 class SubSection(BaseModel):
     """Represents a subsection within a blog section"""
     heading: str = Field(..., description="The H3 heading for this subsection")
     description: Optional[str] = Field(None, description="What this subsection should cover")
 
 
-class SectionPlan(BaseModel):
-    """Detailed plan for writing a specific section"""
-    heading: str = Field(..., description="The H2 heading for the section")
-    description: Optional[str] = Field(None, description="Overview of the section")
-    subsections: List[SubSection] = Field(default_factory=list, description="Optional list of subsections (H3)")
+class BlogSection(BaseModel):
+    """Represents a single section in the blog plan"""
+    heading: str = Field(..., description="The H2 heading for this section")
+    description: Optional[str] = Field(None, description="What this section should cover")
+    subsections: List[SubSection] = Field(default_factory=list, description="Optional H3 subsections")
 
 
 class BlogPlan(BaseModel):
