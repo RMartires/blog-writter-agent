@@ -8,10 +8,24 @@ class BlogSection(BaseModel):
     description: Optional[str] = Field(None, description="Optional brief description of what this section should cover")
 
 
+class SubSection(BaseModel):
+    """Represents a subsection within a blog section"""
+    heading: str = Field(..., description="The H3 heading for this subsection")
+    description: Optional[str] = Field(None, description="What this subsection should cover")
+
+
+class SectionPlan(BaseModel):
+    """Detailed plan for writing a specific section"""
+    heading: str = Field(..., description="The H2 heading for the section")
+    description: Optional[str] = Field(None, description="Overview of the section")
+    subsections: List[SubSection] = Field(default_factory=list, description="Optional list of subsections (H3)")
+
+
 class BlogPlan(BaseModel):
     """Complete blog plan with structure and sections"""
     title: str = Field(..., description="The main title/heading for the blog post")
     intro: Optional[str] = Field(None, description="Optional introduction text or description")
+    intro_length_guidance: str = Field(default="moderate", description="Length guidance: 'brief', 'moderate', or 'comprehensive'")
     sections: List[BlogSection] = Field(..., min_length=1, description="List of sections to be written")
     
     def get_section_count(self) -> int:

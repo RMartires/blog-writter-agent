@@ -3,7 +3,7 @@ from langchain.prompts import PromptTemplate
 from langchain.schema import Document
 from typing import List, Optional
 from agents.lib.openrouter_wrapper import OpenRouterLLM
-from agents.models import BlogPlan, BlogSection
+from agents.models import BlogPlan, BlogSection, SectionPlan, SubSection
 import config
 
 
@@ -91,7 +91,8 @@ class WriterAgent:
         self,
         topic: str,
         plan: BlogPlan,
-        context_docs: List[Document]
+        context_docs: List[Document],
+        length_guidance: str = "moderate"
     ) -> str:
         """
         Generate introduction section based on blog plan
@@ -100,6 +101,7 @@ class WriterAgent:
             topic: Blog post topic
             plan: The complete blog plan with structure
             context_docs: Retrieved context documents from RAG
+            length_guidance: Length guidance - 'brief', 'moderate', or 'comprehensive'
             
         Returns:
             Generated introduction as markdown string
@@ -111,9 +113,20 @@ class WriterAgent:
         sections_preview = "\n".join([f"- {section.heading}" for section in plan.sections])
         intro_guidance = plan.intro if plan.intro else "Hook the reader and introduce the topic"
         
+        # Determine word count target based on length guidance
+        if length_guidance == "brief":
+            word_target = "100-150 words"
+            paragraph_guidance = "1-2 paragraphs"
+        elif length_guidance == "comprehensive":
+            word_target = "250-400 words"
+            paragraph_guidance = "3-4 paragraphs"
+        else:  # moderate
+            word_target = "150-250 words"
+            paragraph_guidance = "2-3 paragraphs"
+        
         # Create prompt template
         prompt = PromptTemplate(
-            input_variables=["topic", "title", "intro_guidance", "sections_preview", "context"],
+            input_variables=["topic", "title", "intro_guidance", "sections_preview", "context", "word_target", "paragraph_guidance"],
             template="""
 <systemMessage>
 You are an expert blog writer creating an engaging introduction.
@@ -130,7 +143,7 @@ RESEARCH CONTEXT:
 {context}
 
 YOUR TASK:
-Write a compelling introduction (2-3 paragraphs, 150-250 words) that:
+Write a compelling introduction ({paragraph_guidance}, {word_target}) that:
 1. Opens with a strong hook to grab attention
 2. Introduces the topic and its importance
 3. Previews what the reader will learn (reference the sections)
@@ -142,6 +155,7 @@ Requirements:
 - Write in second person ("you") where appropriate
 - Be conversational yet professional
 - Create curiosity about the content ahead
+- Target approximately {word_target}
 
 Write ONLY the introduction content, no headings.
 </systemMessage>
@@ -156,7 +170,9 @@ Write ONLY the introduction content, no headings.
                 title=plan.title,
                 intro_guidance=intro_guidance,
                 sections_preview=sections_preview,
-                context=context
+                context=context,
+                word_target=word_target,
+                paragraph_guidance=paragraph_guidance
             )
             return result.strip()
         except Exception as e:
@@ -332,4 +348,179 @@ Write the improved section starting with: ## {section_heading}
         except Exception as e:
             print(f"Error improving section '{section_heading}': {e}")
             raise
+    
+    def generate_subsection(
+        self,
+        subsection: SubSection,
+        section_heading: str,
+        topic: str,
+        context_docs: List[Document],
+        previous_content: str = ""
+    ) -> str:
+        """
+        Generate content for a single subsection (H3)
+        
+        Args:
+            subsection: SubSection object with H3 heading and description
+            section_heading: Parent section H2 heading for context
+            topic: Overall blog topic
+            context_docs: Retrieved context documents
+            previous_content: Previously generated subsection content in this section
+            
+        Returns:
+            Generated subsection content as markdown string
+        """
+        # Format context from retrieved documents
+        context = self._format_context(context_docs)
+        
+        # Format previous content for context awareness
+        previous_context = ""
+        if previous_content:
+            previous_context = f"\n\nPREVIOUS SUBSECTIONS IN THIS SECTION:\n{previous_content}\n"
+        
+        subsection_guidance = subsection.description if subsection.description else "Provide comprehensive coverage of this subsection topic"
+        
+        # Create prompt template
+        prompt = PromptTemplate(
+            input_variables=["topic", "section_heading", "subsection_heading", "subsection_guidance", "context", "previous_context"],
+            template="""
+<systemMessage>
+You are an expert blog writer creating a specific subsection of a blog post.
+
+OVERALL TOPIC: {topic}
+PARENT SECTION: {section_heading}
+
+CRITICAL: You MUST use this EXACT heading as your H3 title:
+### {subsection_heading}
+
+SUBSECTION GUIDANCE: {subsection_guidance}
+
+RESEARCH CONTEXT FOR THIS SUBSECTION:
+{context}
+{previous_context}
+
+YOUR TASK:
+Write this subsection (150-250 words) with:
+1. Start with the EXACT subsection heading as H3: ### {subsection_heading}
+2. Provide comprehensive, valuable information specific to "{subsection_heading}"
+3. Use specific examples, data, or actionable tips where relevant
+4. Use bullet points or numbered lists where appropriate
+5. Maintain logical flow and connection with the parent section
+6. Write in an engaging, professional tone
+7. Natural keyword integration
+
+CRITICAL REQUIREMENTS:
+- You MUST use the exact heading "### {subsection_heading}" - do NOT change it
+- Focus ONLY on the topic indicated by this subsection heading
+- Use proper markdown formatting
+- Be informative and practical
+- Keep paragraphs concise (2-3 sentences)
+- Ensure content flows naturally within the parent section
+- Do NOT repeat information from previous subsections
+- Do NOT write about topics from other subsections
+
+Write the complete subsection starting with: ### {subsection_heading}
+</systemMessage>
+"""
+        )
+        
+        # Create and run the chain
+        try:
+            chain = LLMChain(llm=self.llm, prompt=prompt)
+            result = chain.run(
+                topic=topic,
+                section_heading=section_heading,
+                subsection_heading=subsection.heading,
+                subsection_guidance=subsection_guidance,
+                context=context,
+                previous_context=previous_context
+            )
+            return result.strip()
+        except Exception as e:
+            print(f"Error generating subsection '{subsection.heading}': {e}")
+            raise
+    
+    def generate_section_with_subsections(
+        self,
+        section_plan: SectionPlan,
+        topic: str,
+        context_docs: List[Document],
+        previous_sections: List[str] = None,
+        rag_manager=None
+    ) -> str:
+        """
+        Generate a section with optional subsections based on section plan
+        
+        If subsections exist, generates each subsection individually and combines them.
+        If no subsections, falls back to generate_section behavior.
+        
+        Args:
+            section_plan: SectionPlan object with heading, description, and optional subsections
+            topic: Overall blog topic
+            context_docs: Retrieved context documents relevant to this section
+            previous_sections: List of previously generated section contents for context
+            rag_manager: RAGManager instance for retrieving subsection-specific context
+            
+        Returns:
+            Generated section content as markdown string
+        """
+        # If no subsections, use existing generate_section logic
+        if not section_plan.subsections:
+            # Create a BlogSection object for compatibility
+            from agents.models import BlogSection
+            section = BlogSection(
+                heading=section_plan.heading,
+                description=section_plan.description
+            )
+            return self.generate_section(
+                section=section,
+                topic=topic,
+                context_docs=context_docs,
+                previous_sections=previous_sections
+            )
+        
+        # Generate subsections individually
+        print(f"      📝 Generating {len(section_plan.subsections)} subsections...")
+        
+        # Start with the main section heading
+        section_content = f"## {section_plan.heading}\n\n"
+        
+        # Add section description if available
+        if section_plan.description:
+            section_content += f"{section_plan.description}\n\n"
+        
+        # Generate each subsection
+        subsection_contents = []
+        for i, subsection in enumerate(section_plan.subsections, 1):
+            print(f"        📝 Subsection {i}/{len(section_plan.subsections)}: {subsection.heading}")
+            
+            # Retrieve subsection-specific context from RAG
+            subsection_context = context_docs  # Default to section context
+            if rag_manager:
+                subsection_query = f"{topic} {section_plan.heading} {subsection.heading}"
+                subsection_context = rag_manager.retrieve_context(subsection_query, k=3)
+                print(f"        🔍 Retrieved {len(subsection_context)} context docs for subsection")
+            
+            # Build previous content context for this subsection
+            previous_content = "\n\n".join(subsection_contents)
+            
+            try:
+                subsection_content = self.generate_subsection(
+                    subsection=subsection,
+                    section_heading=section_plan.heading,
+                    topic=topic,
+                    context_docs=subsection_context,
+                    previous_content=previous_content
+                )
+                subsection_contents.append(subsection_content)
+                print(f"        ✓ Generated subsection ({len(subsection_content.split())} words)")
+            except Exception as e:
+                print(f"        ❌ Error generating subsection '{subsection.heading}': {e}")
+                # Add a placeholder for failed subsection
+                subsection_contents.append(f"### {subsection.heading}\n\n*Content generation failed for this subsection.*")
+        
+        # Combine all subsection content
+        section_content += "\n\n".join(subsection_contents)
+        
+        return section_content
 

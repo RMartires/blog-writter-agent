@@ -112,7 +112,8 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
         intro_content = writer.generate_intro(
             topic=topic,
             plan=plan,
-            context_docs=intro_context
+            context_docs=intro_context,
+            length_guidance=plan.intro_length_guidance
         )
         word_count = BlogScorer.count_words(intro_content)
         print(f"✓ Introduction complete ({word_count} words)")
@@ -132,17 +133,40 @@ def generate_blog(topic: str, target_keywords: List[str] = None):
         if section.description:
             print(f"      Description: {section.description[:80]}...")
         
-        # Retrieve section-specific context
+        # NEW: Section planning stage
+        print(f"      🎯 Planning section structure...")
         section_query = f"{topic} {section.heading}"
         section_context = rag_manager.retrieve_context(section_query, k=3)
         
-        # Generate section with awareness of previous sections
+        # Format context for section planning
+        research_context = "\n".join([
+            f"- {doc.metadata.get('title', 'Source')}: {doc.page_content}" 
+            for doc in section_context
+        ])
+        
         try:
-            section_content = writer.generate_section(
+            section_plan = planner.plan_section(
                 section=section,
                 topic=topic,
+                research_context=research_context
+            )
+            
+            if section_plan.subsections:
+                print(f"      Subsections planned: {len(section_plan.subsections)}")
+            else:
+                print(f"      No subsections needed - single flow section")
+        except Exception as e:
+            print(f"      ❌ Error planning section: {e}")
+            return None
+        
+        # Generate section using new method
+        try:
+            section_content = writer.generate_section_with_subsections(
+                section_plan=section_plan,
+                topic=topic,
                 context_docs=section_context,
-                previous_sections=section_contents
+                previous_sections=section_contents,
+                rag_manager=rag_manager
             )
             word_count = BlogScorer.count_words(section_content)
             
