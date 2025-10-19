@@ -1,13 +1,15 @@
-langchain
-langchain-community
-langchain-openai
-tavily-python
-openai
-faiss-cpu
-python-dotenv
-tiktoken
-fastembed
-textstat
-nltk
-yake
+langchain==0.3.27
+langchain-community==0.3.31
+langchain-openai==0.3.35
+langchain-core==0.3.79
+langchain-text-splitters==0.3.11
+tavily-python==0.7.12
+openai==1.109.1
+faiss-cpu==1.12.0
+python-dotenv==1.1.1
+tiktoken==0.12.0
+fastembed==0.7.3
+textstat==0.7.10
+nltk==3.9.2
+yake==0.6.0
 
