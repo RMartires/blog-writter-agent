@@ -196,11 +196,9 @@ class ResearchAgentV2:
         - Identify the main article title (H1)
         - Extract all text from the page, the article will be long so make sure to scroll the entire page
         - Extract and read the entire web page
-        - Figure out all sections like introduction/opening paragraphs (first few paragraphs before first H2)
-        - Find all H2 section headings and their complete text content
-        - For each H2 section, find any H3 subsections and their text content
-        - Return structured data with headings and full text content
-        - Make sure to extract the complete text content, not just summaries
+        - Create a structure of all the text related to the article
+        - Return structured data with all text from the blog content
+        - Make sure to extract the complete text content, not just summaries, full raw text
         '''
         
         logger.info(f"Extracting article structure from: {url}")
