@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 from browser_use import Agent, BrowserSession, Controller
 from browser_use.browser import BrowserProfile
 from browser_use.llm import ChatOpenRouter
+from lmnr import Laminar, Instruments
 from pydantic import BaseModel, Field
 import traceback
 import logging
@@ -15,6 +16,8 @@ import config
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+Laminar.initialize(project_api_key=os.getenv('LMNR_PROJECT_API_KEY'), disable_batch=True, disabled_instruments={Instruments.BROWSER_USE})
 
 
 class SearchResult(BaseModel):
@@ -128,6 +131,8 @@ class ResearchAgentV2:
         - Wait for results to load
         - Extract the top {max_results} organic result URLs (skip ads and sponsored results)
         - For each result, extract the title, URL, and snippet
+        - make sure to keep the entire url in the result not just the domain
+        - do not inclde urls like youtube
         - Complete when URLs are extracted
         '''
         
@@ -186,10 +191,12 @@ class ResearchAgentV2:
     async def _extract_article_structure(self, url: str, title: str) -> Optional[ArticlePlan]:
         """Extract article structure and content from a URL"""
         task = f'''
-        Goal: Extract complete article structure and content from {url}
+        Goal: Extract complete article content from url={url}
         - Navigate to the article URL
         - Identify the main article title (H1)
-        - Extract introduction/opening paragraphs (first few paragraphs before first H2)
+        - Extract all text from the page, the article will be long so make sure to scroll the entire page
+        - Extract and read the entire web page
+        - Figure out all sections like introduction/opening paragraphs (first few paragraphs before first H2)
         - Find all H2 section headings and their complete text content
         - For each H2 section, find any H3 subsections and their text content
         - Return structured data with headings and full text content
@@ -228,7 +235,8 @@ class ResearchAgentV2:
             browser_profile=bp,
             controller=self.controller,
             output_model_schema=ExtractedArticle,
-            llm_timeout=config.BROWSER_TIMEOUT
+            llm_timeout=config.BROWSER_TIMEOUT,
+            step_timeout=30
         )
         
         try:
