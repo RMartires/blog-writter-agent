@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import datetime
 
 
 class SubSection(BaseModel):
@@ -53,4 +54,14 @@ class ArticlePlan(BaseModel):
     url: str = Field(..., description="Source URL")
     intro: Optional[str] = Field(None, description="Introduction/opening text")
     sections: List[ArticleSection] = Field(..., min_length=1, description="Article sections with content")
+
+
+class ArticleDocument(BaseModel):
+    """MongoDB document for storing extracted articles"""
+    query: str = Field(..., description="Search query used")
+    timestamp: datetime = Field(..., description="When article was extracted")
+    article: ArticlePlan = Field(..., description="Extracted article data")
+    status: str = Field(default="pending", description="processing status")
+    word_count: Optional[int] = Field(None, description="Total word count of article")
+    section_count: Optional[int] = Field(None, description="Number of sections")
 

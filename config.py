@@ -37,3 +37,8 @@ BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"
 MAX_ARTICLES_TO_EXTRACT = 5  # Number of articles to extract from search
 BROWSER_TIMEOUT = 120  # Browser operation timeout in seconds
 
+# MongoDB Configuration
+MONGO_DB_URI = os.getenv("MONGO_DB_URI", "mongodb://localhost:27017/")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "blog_researcher")
+MONGO_COLLECTION_ARTICLES = "articles"
+
