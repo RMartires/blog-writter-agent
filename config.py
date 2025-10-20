@@ -30,3 +30,10 @@ API_MIN_REQUEST_INTERVAL = 5.0  # Minimum seconds between API requests (throttli
 API_MAX_RETRIES = 3  # Maximum number of retries on rate limit errors
 API_RETRY_DELAY = 20  # Seconds to wait before retrying on 429 rate limit error
 
+# Browser Use Configuration
+PLAYWRIGHT_BROWSERS_PATH = os.getenv("PLAYWRIGHT_BROWSERS_PATH", 
+    "/media/mats/3c24094c-800b-4576-a390-d23a6d7a02291/workspace/test_ai_gen/browser_use/.playwright-browsers")
+BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"
+MAX_ARTICLES_TO_EXTRACT = 5  # Number of articles to extract from search
+BROWSER_TIMEOUT = 120  # Browser operation timeout in seconds
+

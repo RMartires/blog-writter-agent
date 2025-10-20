@@ -30,3 +30,27 @@ class BlogPlan(BaseModel):
         """Get list of all section headings"""
         return [section.heading for section in self.sections]
 
+
+# New models for researcher_v2
+class ArticleSubSection(BaseModel):
+    """Subsection extracted from an article"""
+    heading: str = Field(..., description="The H3 heading")
+    description: Optional[str] = Field(None, description="Description/summary")
+    text: str = Field(..., description="Raw text content from this subsection")
+
+
+class ArticleSection(BaseModel):
+    """Section extracted from an article"""
+    heading: str = Field(..., description="The H2 heading")
+    description: Optional[str] = Field(None, description="Description/summary")
+    text: str = Field(..., description="Raw text content from this section")
+    subsections: List[ArticleSubSection] = Field(default_factory=list, description="Subsections")
+
+
+class ArticlePlan(BaseModel):
+    """Complete article structure with extracted content"""
+    title: str = Field(..., description="Article title")
+    url: str = Field(..., description="Source URL")
+    intro: Optional[str] = Field(None, description="Introduction/opening text")
+    sections: List[ArticleSection] = Field(..., min_length=1, description="Article sections with content")
+
