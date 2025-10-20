@@ -89,7 +89,7 @@ def generate_blog_from_db(topic: str,
     
     # Initialize MongoDB
     collection = init_mongodb()
-    if not collection:
+    if collection is None:
         print("❌ Failed to connect to MongoDB")
         return None
     
@@ -312,7 +312,7 @@ def main():
     # Show stats only
     if args.stats:
         collection = init_mongodb()
-        if collection:
+        if collection is not None:
             stats = get_article_stats(collection)
             print("📈 Database Statistics:")
             for key, value in stats.items():

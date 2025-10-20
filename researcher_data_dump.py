@@ -40,7 +40,7 @@ async def extract_and_save_articles(query: str, max_articles: int = 5, force_upd
     
     # Initialize MongoDB
     collection = init_mongodb()
-    if not collection:
+    if collection is None:
         print("❌ Failed to connect to MongoDB")
         return False
     
@@ -196,7 +196,7 @@ def main():
     # Show stats only
     if args.stats:
         collection = init_mongodb()
-        if collection:
+        if collection is not None:
             stats = get_article_stats(collection)
             print("📈 Database Statistics:")
             for key, value in stats.items():
