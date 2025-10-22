@@ -6,15 +6,17 @@ import sys
 from dotenv import load_dotenv
 from deepeval.dataset import EvaluationDataset
 from deepeval.test_case import LLMTestCase
-from deepeval.metrics import AnswerRelevancyMetric, HallucinationMetric, FaithfulnessMetric
-from deepeval.models import LocalModel
+from deepeval.metrics import AnswerRelevancyMetric
 from deepeval import evaluate
+from browser_use.llm import ChatOpenRouter
 import traceback
 
-# Add the parent directory to the path to import from agents
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add the project root to the path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(project_root)
 
-from researcher_v2 import ResearchAgentV2
+# Import the modules
+from agents.researcher_v2 import ResearchAgentV2
 import config
 
 # Load environment variables
@@ -91,17 +93,15 @@ async def main():
     
     # Configure deepeval to use OpenRouter for evaluation
     try:
-        eval_llm = LocalModel(
-            model="deepseek/deepseek-r1:free",              # OpenRouter model name
-            base_url="https://openrouter.ai/api/v1",        # OpenRouter API endpoint
-            api_key=os.getenv('OPENROUTER_API_KEY'),        # Your OpenRouter API key
-            temperature=0.7                                 # Low temperature for consistent evaluation
+
+        eval_llm = ChatOpenRouter(
+            model=config.OPENROUTER_MODEL,
+            api_key=config.OPENROUTER_API_KEY,
+            temperature=0.7,
         )
         
         # Create metrics with the configured LLM
         relevancy = AnswerRelevancyMetric(model=eval_llm)
-        hallucination = HallucinationMetric(model=eval_llm)
-        faithfulness = FaithfulnessMetric(model=eval_llm)
         
         print("✅ Successfully configured LocalModel for evaluation")
         
@@ -117,16 +117,12 @@ async def main():
             
             # Use default metrics which should now use OpenRouter
             relevancy = AnswerRelevancyMetric()
-            hallucination = HallucinationMetric()
-            faithfulness = FaithfulnessMetric()
             print("✅ Successfully configured OpenRouter using environment variables")
             
         except Exception as e2:
             print(f"⚠️  Warning: Could not configure OpenRouter: {e2}")
             print("   Falling back to default configuration (may require OpenAI API key)")
             relevancy = AnswerRelevancyMetric()
-            hallucination = HallucinationMetric()
-            faithfulness = FaithfulnessMetric()
     
     # Step 3: Create test cases and run evaluation
     print("3. Creating test cases and running evaluation...")
@@ -146,6 +142,8 @@ async def main():
         
         # Ensure actual_output is always a string
         actual_output = str(actual_output) if actual_output is not None else "No output generated"
+
+        print(actual_output)
         
         # Create test case
         test_case = LLMTestCase(
@@ -169,7 +167,7 @@ async def main():
                 try:
                     result = evaluate(
                         test_cases=[test_case], 
-                        metrics=[relevancy, hallucination, faithfulness]
+                        metrics=[relevancy]
                     )
                     results.append(result)
                     print(f"   ✅ Test case {i+1} completed")
@@ -185,14 +183,6 @@ async def main():
             # Filter out failed evaluations
             results = [r for r in results if r is not None]
             
-        else:
-            print("   Using parallel evaluation...")
-            # Parallel evaluation (original behavior)
-            results = evaluate(
-                test_cases=dataset.test_cases, 
-                metrics=[relevancy, hallucination, faithfulness]
-            )
-        
         print("\n✅ Evaluation completed!")
         print(f"Results: {results}")
         

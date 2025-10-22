@@ -198,17 +198,13 @@ class ResearchAgentV2:
         Goal: Extract complete article content from url={url}
         - Navigate to the article URL
         - Wait for page to fully load (including JavaScript and dynamic content)
+        - Scroll the entire page to ensure all content is loaded and visible
         - Execute JavaScript to capture the entire HTML body: document.body.innerHTML
         - Execute JavaScript to capture the complete page HTML: document.documentElement.outerHTML
-        - Scroll the entire page to ensure all content is loaded and visible
-        - Extract all text content from the page including headers, paragraphs, lists, and any other text elements
+        - Identify all text content from the page including headers, paragraphs, lists, and any other text elements
         - Identify the main article title (H1)
         - Create a structure of all the text related to the article
         - Return structured data with all text from the blog content
-        - Make sure to extract the complete text content, not just summaries, full raw text
-        - IMPORTANT: Include the raw HTML body content in the raw_html_body field for complete context
-        - IMPORTANT: Include the full HTML document in the full_html field
-        - Use JavaScript evaluation to get: document.body.innerHTML and document.documentElement.outerHTML
         - Do not open another tab, use only one tab
         '''
         
