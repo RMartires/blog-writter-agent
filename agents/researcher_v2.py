@@ -38,6 +38,8 @@ class ExtractedArticle(BaseModel):
     url: str = Field(..., description="Source URL")
     intro: Optional[str] = Field(None, description="Introduction text")
     sections: List[ArticleSection] = Field(..., description="Article sections")
+    raw_html_body: Optional[str] = Field(None, description="Raw HTML body content for complete context")
+    full_html: Optional[str] = Field(None, description="Complete HTML document including head and body")
 
 
 class ResearchAgentV2:
@@ -131,9 +133,11 @@ class ResearchAgentV2:
         - Wait for results to load
         - Extract the top {max_results} organic result URLs (skip ads and sponsored results)
         - For each result, extract the title, URL, and snippet
-        - make sure to keep the entire url in the result not just the domain
-        - do not inclde urls like youtube
+        - Make sure to keep the entire url in the result not just the domain
+        - Scroll if top results are not web page links, the goal is to scroll the page untill we get a list of web page urls
+        - Do not inclde urls like youtube
         - Complete when URLs are extracted
+        - Do not open another tab, use only one tab
         '''
         
         logger.info(f"Searching Google for: {query}")
@@ -193,12 +197,19 @@ class ResearchAgentV2:
         task = f'''
         Goal: Extract complete article content from url={url}
         - Navigate to the article URL
+        - Wait for page to fully load (including JavaScript and dynamic content)
+        - Execute JavaScript to capture the entire HTML body: document.body.innerHTML
+        - Execute JavaScript to capture the complete page HTML: document.documentElement.outerHTML
+        - Scroll the entire page to ensure all content is loaded and visible
+        - Extract all text content from the page including headers, paragraphs, lists, and any other text elements
         - Identify the main article title (H1)
-        - Extract all text from the page, the article will be long so make sure to scroll the entire page
-        - Extract and read the entire web page
         - Create a structure of all the text related to the article
         - Return structured data with all text from the blog content
         - Make sure to extract the complete text content, not just summaries, full raw text
+        - IMPORTANT: Include the raw HTML body content in the raw_html_body field for complete context
+        - IMPORTANT: Include the full HTML document in the full_html field
+        - Use JavaScript evaluation to get: document.body.innerHTML and document.documentElement.outerHTML
+        - Do not open another tab, use only one tab
         '''
         
         logger.info(f"Extracting article structure from: {url}")
@@ -234,7 +245,9 @@ class ResearchAgentV2:
             controller=self.controller,
             output_model_schema=ExtractedArticle,
             llm_timeout=config.BROWSER_TIMEOUT,
-            step_timeout=30
+            step_timeout=60,  # Increased timeout for HTML capture
+            use_vision=False,  # Disable vision to focus on text content
+            include_attributes=['id', 'class', 'data-*', 'href', 'src']  # Include more attributes for better context
         )
         
         try:
@@ -243,6 +256,12 @@ class ResearchAgentV2:
             
             if result:
                 parsed_article = ExtractedArticle.model_validate_json(result)
+                
+                # Log HTML capture information
+                if parsed_article.raw_html_body:
+                    logger.info(f"Captured HTML body: {len(parsed_article.raw_html_body)} characters")
+                if parsed_article.full_html:
+                    logger.info(f"Captured full HTML: {len(parsed_article.full_html)} characters")
                 
                 # Convert to ArticlePlan format
                 article_plan = ArticlePlan(
