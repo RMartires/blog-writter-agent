@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agents.models import BlogPlan
 from backend.job_manager import (
     init_jobs_collection, create_job, get_job, update_job_status, find_job_by_keyword,
-    init_blog_jobs_collection, create_blog_job, get_blog_job, update_blog_job_status
+    init_blog_jobs_collection, create_blog_job, get_blog_job, update_blog_job_status,
+    find_blog_job_by_plan_job_id
 )
 from typing import Optional
 from backend.worker import start_worker, stop_worker, start_blog_worker, stop_blog_worker
@@ -320,6 +321,22 @@ def generate_blog(session_id: str, request: GenerateBlogRequest):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Plan job {request.plan_job_id} is not completed (status: {plan_job.get('status')})"
+                )
+            
+            # Check if a blog job already exists for this plan_job_id
+            existing_blog_job = find_blog_job_by_plan_job_id(
+                blog_jobs_collection,
+                request.plan_job_id,
+                status="completed"
+            )
+            
+            if existing_blog_job:
+                # Return existing job_id
+                print(f"[{session_id}] ♻️  Reusing existing blog job {existing_blog_job['job_id']} for plan_job_id: {request.plan_job_id}")
+                return JobResponse(
+                    job_id=existing_blog_job["job_id"],
+                    status=existing_blog_job["status"],
+                    message="Found existing blog. Use GET /blog/{job_id} to retrieve it."
                 )
         
         # Generate unique job ID

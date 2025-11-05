@@ -5,6 +5,7 @@ import { generatePlan, getPlanStatus, generateBlog, getBlogStatus } from '@/lib/
 import { PlanStatusResponse, BlogStatusResponse, JobStatus, BlogPlan } from '@/types/api'
 import LoadingScreen from '@/components/LoadingScreen'
 import PlanReviewScreen from '@/components/PlanReviewScreen'
+import ReactMarkdown from 'react-markdown'
 
 export default function Home() {
   const [mode, setMode] = useState<'quick' | 'detailed'>('quick')
@@ -15,6 +16,7 @@ export default function Home() {
   const [blogJobId, setBlogJobId] = useState<string | null>(null)
   const [blogStatus, setBlogStatus] = useState<BlogStatusResponse | null>(null)
   const [isGeneratingBlog, setIsGeneratingBlog] = useState(false)
+  const [isReadMode, setIsReadMode] = useState(true)
   const pollingIntervalRef = useRef<number | null>(null)
   const blogPollingIntervalRef = useRef<number | null>(null)
 
@@ -150,6 +152,27 @@ export default function Home() {
     return <LoadingScreen message={loadingMessage} />
   }
 
+  const handleExportBlog = () => {
+    if (!blogStatus?.blog) return
+    
+    const blob = new Blob([blogStatus.blog], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    // Extract title from markdown (first # heading)
+    const titleMatch = blogStatus.blog.match(/^#\s+(.+)$/m)
+    const filename = titleMatch 
+      ? `${titleMatch[1].replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`
+      : 'blog_post.md'
+    
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   // Show blog result if completed
   if (blogStatus?.status === JobStatus.COMPLETED && blogStatus.blog) {
     return (
@@ -186,23 +209,198 @@ export default function Home() {
         </header>
         <main className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
+            {/* Action Bar */}
+            <div className="mb-6 flex items-center justify-between">
               <button
                 onClick={() => {
                   setBlogStatus(null)
                   setBlogJobId(null)
                 }}
-                className="px-4 py-2 text-text-secondary hover:text-accent transition-colors"
+                className="px-4 py-2 text-text-secondary hover:text-accent transition-colors flex items-center gap-2"
               >
-                ← Back to Plan
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-current"
+                >
+                  <path
+                    d="M19 12H5M5 12L12 19M5 12L12 5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Back to Plan
               </button>
-            </div>
-            <div className="bg-input-bg/50 rounded-lg p-8 border border-input-bg">
-              <div className="prose prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap text-text-primary font-mono text-sm">
-                  {blogStatus.blog}
-                </pre>
+              
+              <div className="flex items-center gap-3">
+                {/* Read/Edit Mode Toggle */}
+                <div className="flex items-center gap-2 bg-input-bg rounded-lg p-1">
+                  <button
+                    onClick={() => setIsReadMode(true)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      isReadMode
+                        ? 'bg-accent text-text-primary'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M2 3H8C9.06087 3 10.0783 3.42143 10.8284 4.17157C11.5786 4.92172 12 5.93913 12 7V21C12 20.2044 11.6839 19.4413 11.1213 18.8787C10.5587 18.3161 9.79565 18 9 18H2V3Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M22 3H16C14.9391 3 13.9217 3.42143 13.1716 4.17157C12.4214 4.92172 12 5.93913 12 7V21C12 20.2044 12.3161 19.4413 12.8787 18.8787C13.4413 18.3161 14.2044 18 15 18H22V3Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Read Mode
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setIsReadMode(false)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      !isReadMode
+                        ? 'bg-accent text-text-primary'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Edit Mode
+                    </div>
+                  </button>
+                </div>
+
+                {/* Export Button */}
+                <button
+                  onClick={handleExportBlog}
+                  className="px-4 py-2 bg-accent text-text-primary rounded-lg font-medium hover:bg-opacity-90 transition-all flex items-center gap-2"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M7 10L12 15L17 10"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 15V3"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Export
+                </button>
               </div>
+            </div>
+
+            {/* Blog Content */}
+            <div className="bg-input-bg/50 rounded-lg border border-input-bg overflow-hidden">
+              {isReadMode ? (
+                <div className="p-8 prose prose-invert prose-lg max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ node, ...props }) => (
+                        <h1 className="text-4xl font-bold text-text-primary mb-4 mt-8 first:mt-0" {...props} />
+                      ),
+                      h2: ({ node, ...props }) => (
+                        <h2 className="text-3xl font-bold text-text-primary mb-3 mt-6" {...props} />
+                      ),
+                      h3: ({ node, ...props }) => (
+                        <h3 className="text-2xl font-semibold text-text-primary mb-2 mt-4" {...props} />
+                      ),
+                      p: ({ node, ...props }) => (
+                        <p className="text-text-secondary leading-relaxed mb-4" {...props} />
+                      ),
+                      ul: ({ node, ...props }) => (
+                        <ul className="list-disc list-inside mb-4 text-text-secondary space-y-2" {...props} />
+                      ),
+                      ol: ({ node, ...props }) => (
+                        <ol className="list-decimal list-inside mb-4 text-text-secondary space-y-2" {...props} />
+                      ),
+                      li: ({ node, ...props }) => (
+                        <li className="text-text-secondary" {...props} />
+                      ),
+                      strong: ({ node, ...props }) => (
+                        <strong className="font-semibold text-text-primary" {...props} />
+                      ),
+                      code: ({ node, inline, ...props }: any) => {
+                        if (inline) {
+                          return (
+                            <code className="bg-background px-1.5 py-0.5 rounded text-accent text-sm font-mono" {...props} />
+                          )
+                        }
+                        return (
+                          <code className="block bg-background p-4 rounded-lg text-text-primary text-sm font-mono overflow-x-auto mb-4" {...props} />
+                        )
+                      },
+                    }}
+                  >
+                    {blogStatus.blog}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="p-8">
+                  <pre className="whitespace-pre-wrap text-text-primary font-mono text-sm leading-relaxed overflow-x-auto">
+                    {blogStatus.blog}
+                  </pre>
+                </div>
+              )}
             </div>
           </div>
         </main>

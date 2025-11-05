@@ -271,3 +271,37 @@ def get_processing_blog_jobs(collection: Collection, limit: int = 10) -> list:
         logger.error(f"Error getting processing blog jobs: {e}")
         return []
 
+
+def find_blog_job_by_plan_job_id(collection: Collection, plan_job_id: str, status: str = "completed") -> Optional[Dict[str, Any]]:
+    """
+    Find an existing blog job by plan_job_id.
+    Prefer completed jobs, but can search for any status.
+    
+    Args:
+        collection: MongoDB collection
+        plan_job_id: Plan job ID to search for
+        status: Status to filter by (default: "completed")
+        
+    Returns:
+        Blog job document if found, None otherwise
+    """
+    try:
+        # Find the most recent completed blog job with matching plan_job_id
+        job = collection.find_one(
+            {
+                "plan_job_id": plan_job_id,
+                "status": status
+            },
+            sort=[("created_at", -1)]  # Get most recent first
+        )
+        
+        if job:
+            job["_id"] = str(job["_id"])
+            logger.info(f"Found existing blog job {job['job_id']} for plan_job_id: {plan_job_id}")
+            return job
+        
+        return None
+    except Exception as e:
+        logger.error(f"Error finding blog job by plan_job_id '{plan_job_id}': {e}")
+        return None
+
