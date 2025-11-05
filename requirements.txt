@@ -19,3 +19,4 @@ lmnr==0.7.18
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
 pydantic==2.9.2
+pymongo==4.10.1

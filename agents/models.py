@@ -65,3 +65,15 @@ class ArticleDocument(BaseModel):
     word_count: Optional[int] = Field(None, description="Total word count of article")
     section_count: Optional[int] = Field(None, description="Number of sections")
 
+
+class PlanGenerationJob(BaseModel):
+    """MongoDB document for plan generation jobs"""
+    job_id: str = Field(..., description="Unique job identifier")
+    keyword: str = Field(..., description="Topic/keyword for plan generation")
+    status: str = Field(default="processing", description="Job status: processing, completed, failed")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Job creation timestamp")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    plan: Optional[dict] = Field(None, description="Generated plan (when completed)")
+    error: Optional[str] = Field(None, description="Error message (when failed)")
+    session_id: Optional[str] = Field(None, description="Session ID for logging")
+

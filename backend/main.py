@@ -4,14 +4,14 @@ from pydantic import BaseModel, Field
 from typing import Optional
 import sys
 import os
+import uuid
 
 # Add parent directory to path to import agents
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agents.researcher import ResearchAgent
-from agents.rag_manager import RAGManager
-from agents.planner import PlannerAgent
 from agents.models import BlogPlan
+from backend.job_manager import init_jobs_collection, create_job, get_job, update_job_status
+from backend.worker import start_worker, stop_worker
 import config
 
 app = FastAPI(title="AI Blog Writer API", version="1.0.0")
@@ -25,6 +25,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize MongoDB collection for jobs
+jobs_collection = None
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize resources on startup"""
+    global jobs_collection
+    jobs_collection = init_jobs_collection()
+    if jobs_collection is None:
+        print("Warning: Failed to initialize MongoDB. Job creation will fail.")
+    else:
+        # Start background worker
+        start_worker(poll_interval=5)
+        print("Background worker started")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    stop_worker()
+    print("Background worker stopped")
+
 
 class GeneratePlanRequest(BaseModel):
     keyword: str = Field(..., description="Topic or keyword for blog post generation")
@@ -35,24 +58,41 @@ class ErrorResponse(BaseModel):
     detail: Optional[str] = None
 
 
+class JobResponse(BaseModel):
+    job_id: str
+    status: str
+    message: str
+
+
+class PlanStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    keyword: str
+    created_at: str
+    updated_at: str
+    plan: Optional[dict] = None
+    error: Optional[str] = None
+
+
 @app.post(
-    "/generate-plan/{uuid}",
-    response_model=BlogPlan,
+    "/generate-plan/{session_id}",
+    response_model=JobResponse,
     responses={
         400: {"model": ErrorResponse, "description": "Bad request"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
-def generate_plan(uuid: str, request: GeneratePlanRequest):
+def generate_plan(session_id: str, request: GeneratePlanRequest):
     """
-    Generate a blog plan based on a keyword/topic.
+    Create a job to generate a blog plan based on a keyword/topic.
+    Returns immediately with job_id. Use GET /plan/{job_id} to check status.
     
     Args:
-        uuid: Unique identifier for request tracking/logging
+        session_id: Unique identifier for request tracking/logging
         request: Request body containing keyword parameter
         
     Returns:
-        BlogPlan object with title, intro, and sections structure
+        JobResponse with job_id and status
     """
     # Validate keyword
     keyword = request.keyword.strip()
@@ -74,72 +114,101 @@ def generate_plan(uuid: str, request: GeneratePlanRequest):
             detail="TAVILY_API_KEY not found in environment variables"
         )
     
+    # Check if MongoDB is initialized
+    if jobs_collection is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Database connection not available"
+        )
+    
     try:
-        # Initialize agents with session ID for trace grouping
-        researcher = ResearchAgent(config.TAVILY_API_KEY)
-        rag_manager = RAGManager(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
-        planner = PlannerAgent(
-            config.OPENROUTER_API_KEY,
-            config.OPENROUTER_MODEL,
-            session_id=uuid
-        )
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
         
-        # Step 1: Research
-        print(f"[{uuid}] 🔍 Researching '{keyword}'...")
-        research_data = researcher.search(
-            keyword,
-            max_results=5
-        )
+        # Create job in database with status "processing"
+        success = create_job(jobs_collection, job_id, keyword, session_id=session_id)
         
-        if not research_data:
+        if not success:
             raise HTTPException(
                 status_code=500,
-                detail="No research data found. Please try a different keyword."
+                detail="Failed to create job"
             )
         
-        print(f"[{uuid}] ✓ Found {len(research_data)} relevant sources")
-        
-        # Step 2: Build RAG knowledge base
-        print(f"[{uuid}] 📚 Building knowledge base...")
-        rag_manager.ingest_research(research_data)
-        print(f"[{uuid}] ✓ Knowledge base ready")
-        
-        # Step 3: Create research summary for planner
-        research_summary = "\n".join([
-            f"- {r['title']}: {r['content']}"
-            for r in research_data
-        ])
-        
-        # Step 4: Generate plan
-        print(f"[{uuid}] 📋 Planning blog structure...")
-        plan = planner.create_plan(
-            topic=keyword,
-            target_keywords=[],
-            research_summary=research_summary
+        return JobResponse(
+            job_id=job_id,
+            status="processing",
+            message="Job created successfully. Use GET /plan/{job_id} to check status."
         )
-        
-        print(f"[{uuid}] ✓ Plan created: '{plan.title}' with {plan.get_section_count()} sections")
-        
-        # Return plan as JSON (Pydantic model automatically serializes)
-        return plan
         
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
-    except ValueError as e:
-        # Handle validation errors
-        raise HTTPException(
-            status_code=400,
-            detail=f"Validation error: {str(e)}"
-        )
     except Exception as e:
         # Handle all other errors
         error_msg = str(e)
-        print(f"[{uuid}] ❌ Error: {error_msg}")
+        print(f"[{session_id}] ❌ Error creating job: {error_msg}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating plan: {error_msg}"
+            detail=f"Error creating job: {error_msg}"
         )
+
+
+@app.get(
+    "/plan/{job_id}",
+    response_model=PlanStatusResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Job not found"},
+    },
+)
+def get_plan_status(job_id: str):
+    """
+    Get the status and result of a plan generation job.
+    
+    Args:
+        job_id: Job identifier returned from POST /generate-plan/{uuid}
+        
+    Returns:
+        PlanStatusResponse with job status and plan (if completed)
+    """
+    if jobs_collection is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Database connection not available"
+        )
+    
+    job = get_job(jobs_collection, job_id)
+    
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job {job_id} not found"
+        )
+    
+    from datetime import datetime as dt
+    
+    # Handle datetime serialization
+    created_at = job["created_at"]
+    updated_at = job["updated_at"]
+    
+    if isinstance(created_at, dt):
+        created_at = created_at.isoformat()
+    else:
+        created_at = str(created_at)
+    
+    if isinstance(updated_at, dt):
+        updated_at = updated_at.isoformat()
+    else:
+        updated_at = str(updated_at)
+    
+    return PlanStatusResponse(
+        job_id=job["job_id"],
+        status=job["status"],
+        keyword=job["keyword"],
+        created_at=created_at,
+        updated_at=updated_at,
+        plan=job.get("plan"),
+        error=job.get("error")
+    )
 
 
 @app.get("/health")
