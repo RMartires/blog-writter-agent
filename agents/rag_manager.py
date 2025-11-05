@@ -18,10 +18,35 @@ except ImportError:
     pass  # Ray will be optional, handled gracefully
 
 
+def _embed_chunk_worker(text_chunk: List[str], batch_size: int) -> List[np.ndarray]:
+    """
+    Module-level function for embedding chunks in multiprocessing workers.
+    This must be at module level to be picklable.
+    
+    Args:
+        text_chunk: List of text strings to embed
+        batch_size: Batch size for embedding generation
+        
+    Returns:
+        List of numpy arrays representing embeddings
+    """
+    # Create a new model instance for this worker process
+    local_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+    embeddings = []
+    try:
+        for emb in local_model.embed(text_chunk, batch_size=batch_size):
+            embeddings.append(np.array(emb))
+    except (TypeError, AttributeError):
+        # Fallback if batch_size parameter not supported
+        for emb in local_model.embed(text_chunk):
+            embeddings.append(np.array(emb))
+    return embeddings
+
+
 class RAGManager:
     """Manager for RAG system using in-memory FAISS vector store"""
     
-    def __init__(self, openrouter_api_key: str, model: str, batch_size: int = 512, num_workers: int = None, chunk_size: int = 5000, use_ray: bool = True):
+    def __init__(self, openrouter_api_key: str, model: str, batch_size: int = 512, num_workers: int = None, chunk_size: int = 8000, use_ray: bool = True, use_multiprocessing: bool = True):
         """
         Initialize RAG manager with local embeddings
         
@@ -30,8 +55,9 @@ class RAGManager:
             model: Model name (not used for embeddings)
             batch_size: Batch size for embedding generation per worker (default: 512, larger = faster)
             num_workers: Number of parallel workers for embedding generation (default: CPU count)
-            chunk_size: Size of text chunks (default: 5000, larger = fewer chunks = faster embedding)
+            chunk_size: Size of text chunks (default: 8000, larger = fewer chunks = faster embedding)
             use_ray: Use Ray for parallel processing if available (default: True, can give 10x speedup)
+            use_multiprocessing: Use multiprocessing Pool for parallel processing (default: True, faster than Ray for CPU)
         """
         # Use FastEmbed directly with optimized model
         # Try to use a quantized/faster model if available, otherwise use default
@@ -54,36 +80,48 @@ class RAGManager:
         self.vector_store = None
         self.model = model
         self.batch_size = batch_size  # Batch size per worker
-        self.num_workers = num_workers or min(cpu_count(), 8)  # Use more workers with Ray
+        self.num_workers = num_workers or cpu_count()  # Use all available CPUs
         self.use_ray = use_ray and RAY_AVAILABLE
+        self.use_multiprocessing = use_multiprocessing
         
-        # Initialize Ray if available and requested
-        if self.use_ray:
+        # Prefer multiprocessing over Ray for CPU-bound tasks (faster and no extra dependencies)
+        # If both are enabled, prefer multiprocessing (it's faster for CPU tasks)
+        if self.use_multiprocessing:
+            if self.use_ray:
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Using multiprocessing (faster than Ray for CPU), {self.num_workers} workers")
+                self.use_ray = False  # Disable Ray if multiprocessing is available
+            else:
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Using multiprocessing with {self.num_workers} workers for parallel embedding")
+        elif self.use_ray:
+            # Initialize Ray if available and requested
             try:
                 import ray  # type: ignore
                 if not ray.is_initialized():
                     ray.init(num_cpus=self.num_workers, ignore_reinit_error=True)
                 print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Ray initialized with {self.num_workers} CPUs for parallel processing")
             except Exception as e:
-                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Warning: Ray initialization failed: {e}. Continuing without Ray.")
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Warning: Ray initialization failed: {e}. Falling back to multiprocessing.")
                 self.use_ray = False
+                self.use_multiprocessing = True
         
         # Configure text splitter for chunking
         # Larger chunks = fewer embeddings needed = faster processing
-        # 5000 chars reduces chunks significantly while maintaining reasonable search quality
+        # 8000 chars significantly reduces chunks while maintaining reasonable search quality
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
-            chunk_overlap=min(300, chunk_size // 10),  # 10% overlap, max 300
-            separators=["\n\n", "\n", ". ", " ", ""]
+            chunk_overlap=min(400, chunk_size // 10),  # 10% overlap, max 400
+            separators=["\n\n", "\n", ". ", " ", ""],
+            length_function=len  # Use simple len for faster processing
         )
     
-    def ingest_research(self, research_data: List[Dict], min_content_length: int = 50):
+    def ingest_research(self, research_data: List[Dict], min_content_length: int = 100, max_chunks: int = None):
         """
         Ingest research data into the RAG system (optimized for large inputs)
         
         Args:
             research_data: List of research results from researcher agent
-            min_content_length: Minimum content length to process (filters out short content)
+            min_content_length: Minimum content length to process (filters out short content, default: 100)
+            max_chunks: Maximum number of chunks to process (None = process all, for speed optimization)
         """
         start_time = datetime.now()
         print(f"[{start_time.strftime('%Y-%m-%d %H:%M:%S')}] Starting research ingestion...")
@@ -126,6 +164,12 @@ class RAGManager:
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Warning: No chunks created from documents")
             return
         
+        # Limit chunks if max_chunks specified (for speed optimization)
+        if max_chunks and len(splits) > max_chunks:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Limiting chunks from {len(splits)} to {max_chunks} for faster processing")
+            # Take first max_chunks (most relevant typically)
+            splits = splits[:max_chunks]
+        
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processing {len(splits)} chunks with {self.num_workers} workers (batch_size={self.batch_size} per worker)...")
         
         # Step 3: Generate embeddings using FastEmbed with parallel processing
@@ -137,6 +181,9 @@ class RAGManager:
             if self.use_ray:
                 print(f"[{embed_start.strftime('%Y-%m-%d %H:%M:%S')}] Generating embeddings using FastEmbed with Ray parallel processing ({self.num_workers} workers)...")
                 all_embeddings = self._generate_embeddings_with_ray(texts, embed_start)
+            elif self.use_multiprocessing:
+                print(f"[{embed_start.strftime('%Y-%m-%d %H:%M:%S')}] Generating embeddings using FastEmbed with multiprocessing ({self.num_workers} workers)...")
+                all_embeddings = self._generate_embeddings_with_multiprocessing(texts, embed_start)
             else:
                 print(f"[{embed_start.strftime('%Y-%m-%d %H:%M:%S')}] Generating embeddings using FastEmbed (batch_size={self.batch_size})...")
                 # Use FastEmbed's native batch processing with optimized settings
@@ -282,6 +329,43 @@ class RAGManager:
             ready, futures = ray.wait(futures, num_returns=1, timeout=1.0)
             for future in ready:
                 chunk_embeddings = ray.get(future)
+                all_embeddings.extend(chunk_embeddings)
+                completed += 1
+                elapsed = (datetime.now() - start_time).total_seconds()
+                rate = len(all_embeddings) / elapsed if elapsed > 0 else 0
+                remaining = (len(texts) - len(all_embeddings)) / rate if rate > 0 else 0
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]   Completed {completed}/{len(text_chunks)} chunks, {len(all_embeddings)}/{len(texts)} embeddings ({rate:.1f} emb/s, ~{remaining:.0f}s remaining)")
+        
+        return all_embeddings
+    
+    def _generate_embeddings_with_multiprocessing(self, texts: List[str], start_time: datetime) -> List[np.ndarray]:
+        """
+        Generate embeddings using multiprocessing Pool (faster than Ray for CPU-bound tasks)
+        
+        Args:
+            texts: List of text strings to embed
+            start_time: Start time for progress reporting
+            
+        Returns:
+            List of numpy arrays representing embeddings
+        """
+        # Split texts into chunks for parallel processing
+        chunk_size = max(1, len(texts) // self.num_workers)
+        text_chunks = [texts[i:i + chunk_size] for i in range(0, len(texts), chunk_size)]
+        
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processing {len(text_chunks)} chunks in parallel with {self.num_workers} workers...")
+        
+        # Process chunks in parallel using multiprocessing Pool
+        # Use a module-level function that can be pickled
+        all_embeddings = []
+        with Pool(processes=self.num_workers) as pool:
+            # Submit all tasks with batch_size passed as argument
+            results = [pool.apply_async(_embed_chunk_worker, (chunk, self.batch_size)) for chunk in text_chunks]
+            
+            # Collect results with progress updates
+            completed = 0
+            for result in results:
+                chunk_embeddings = result.get()
                 all_embeddings.extend(chunk_embeddings)
                 completed += 1
                 elapsed = (datetime.now() - start_time).total_seconds()
