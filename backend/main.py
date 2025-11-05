@@ -101,6 +101,7 @@ class BlogStatusResponse(BaseModel):
     updated_at: str
     blog: Optional[str] = None
     error: Optional[str] = None
+    plan_job_id: Optional[str] = None
 
 
 @app.post(
@@ -429,7 +430,8 @@ def get_blog_status(job_id: str):
         created_at=created_at,
         updated_at=updated_at,
         blog=job.get("blog"),
-        error=job.get("error")
+        error=job.get("error"),
+        plan_job_id=job.get("plan_job_id")
     )
 
 

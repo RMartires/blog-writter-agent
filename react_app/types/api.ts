@@ -56,5 +56,6 @@ export interface BlogStatusResponse {
   updated_at: string
   blog: string | null
   error: string | null
+  plan_job_id?: string
 }
 
