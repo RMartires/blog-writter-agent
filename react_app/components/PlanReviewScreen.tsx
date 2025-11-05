@@ -247,7 +247,7 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
                   {section.subsections.length > 0 && (
                     <div className="relative mt-6 space-y-5">
                       {/* Extend the green line through subsections */}
-                      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent/40"></div>
+                      {/* <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent/40"></div> */}
                       <div className="pl-6 space-y-5">
                         {section.subsections.map((subsection, subIdx) => (
                           <div
