@@ -17,6 +17,7 @@ export default function Home() {
   const [blogStatus, setBlogStatus] = useState<BlogStatusResponse | null>(null)
   const [isGeneratingBlog, setIsGeneratingBlog] = useState(false)
   const [isReadMode, setIsReadMode] = useState(true)
+  const [editedBlogContent, setEditedBlogContent] = useState<string>('')
   const pollingIntervalRef = useRef<number | null>(null)
   const blogPollingIntervalRef = useRef<number | null>(null)
 
@@ -96,6 +97,13 @@ export default function Home() {
     blogPollingIntervalRef.current = window.setInterval(pollBlogStatus, 2000)
   }, [blogJobId, isGeneratingBlog])
 
+  // Initialize edited content when blog status changes
+  useEffect(() => {
+    if (blogStatus?.status === JobStatus.COMPLETED && blogStatus.blog && editedBlogContent === '') {
+      setEditedBlogContent(blogStatus.blog)
+    }
+  }, [blogStatus?.blog, blogStatus?.status])
+
   const handleGenerate = async () => {
     if (!topic.trim()) {
       alert('Please enter a topic or keywords')
@@ -153,15 +161,16 @@ export default function Home() {
   }
 
   const handleExportBlog = () => {
-    if (!blogStatus?.blog) return
+    const contentToExport = isReadMode ? blogStatus?.blog : editedBlogContent
+    if (!contentToExport) return
     
-    const blob = new Blob([blogStatus.blog], { type: 'text/markdown' })
+    const blob = new Blob([contentToExport], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     
     // Extract title from markdown (first # heading)
-    const titleMatch = blogStatus.blog.match(/^#\s+(.+)$/m)
+    const titleMatch = contentToExport.match(/^#\s+(.+)$/m)
     const filename = titleMatch 
       ? `${titleMatch[1].replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`
       : 'blog_post.md'
@@ -175,6 +184,9 @@ export default function Home() {
 
   // Show blog result if completed
   if (blogStatus?.status === JobStatus.COMPLETED && blogStatus.blog) {
+    // Use edited content if available, otherwise use original blog content
+    const displayContent = editedBlogContent || blogStatus.blog
+
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <header className="flex justify-between items-center px-8 py-6 border-b border-input-bg">
@@ -391,14 +403,17 @@ export default function Home() {
                       },
                     }}
                   >
-                    {blogStatus.blog}
+                    {displayContent}
                   </ReactMarkdown>
                 </div>
               ) : (
                 <div className="p-8">
-                  <pre className="whitespace-pre-wrap text-text-primary font-mono text-sm leading-relaxed overflow-x-auto">
-                    {blogStatus.blog}
-                  </pre>
+                  <textarea
+                    value={editedBlogContent}
+                    onChange={(e) => setEditedBlogContent(e.target.value)}
+                    className="w-full min-h-[600px] bg-background text-text-primary font-mono text-sm leading-relaxed p-4 rounded-lg border border-input-bg focus:outline-none focus:ring-2 focus:ring-accent resize-y"
+                    placeholder="Edit your blog post markdown here..."
+                  />
                 </div>
               )}
             </div>
