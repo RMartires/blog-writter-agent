@@ -1,18 +1,169 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { generatePlan, getPlanStatus } from '@/lib/api'
+import { PlanStatusResponse } from '@/types/api'
+import LoadingScreen from '@/components/LoadingScreen'
 
 export default function Home() {
   const [mode, setMode] = useState<'quick' | 'detailed'>('quick')
   const [topic, setTopic] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [planStatus, setPlanStatus] = useState<PlanStatusResponse | null>(null)
+  const pollingIntervalRef = useRef<number | null>(null)
 
-  const handleGenerate = () => {
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current !== null) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
+  }, [])
+
+  // Poll for job status
+  useEffect(() => {
+    if (!jobId || !isLoading) return
+
+    const pollStatus = async () => {
+      try {
+        const status = await getPlanStatus(jobId)
+        setPlanStatus(status)
+
+        if (status.status === 'completed' || status.status === 'failed') {
+          setIsLoading(false)
+          if (pollingIntervalRef.current !== null) {
+            clearInterval(pollingIntervalRef.current)
+            pollingIntervalRef.current = null
+          }
+        }
+      } catch (error) {
+        console.error('Error polling job status:', error)
+        setIsLoading(false)
+        if (pollingIntervalRef.current !== null) {
+          clearInterval(pollingIntervalRef.current)
+          pollingIntervalRef.current = null
+        }
+        alert('Error checking job status. Please try again.')
+      }
+    }
+
+    // Poll immediately, then every 2 seconds
+    pollStatus()
+    pollingIntervalRef.current = window.setInterval(pollStatus, 2000)
+  }, [jobId, isLoading])
+
+  const handleGenerate = async () => {
     if (!topic.trim()) {
       alert('Please enter a topic or keywords')
       return
     }
-    // TODO: Connect to backend API
-    console.log('Generating blog post:', { topic, mode })
+
+    try {
+      setIsLoading(true)
+      setPlanStatus(null)
+      
+      // Generate session ID
+      const sessionId = crypto.randomUUID()
+      
+      // Call generate-plan API
+      const response = await generatePlan(sessionId, { keyword: topic })
+      setJobId(response.job_id)
+      
+      // Polling will be handled by useEffect
+    } catch (error) {
+      console.error('Error generating plan:', error)
+      setIsLoading(false)
+      alert(error instanceof Error ? error.message : 'Failed to generate plan. Please try again.')
+    }
+  }
+
+  // Show loading screen while processing
+  if (isLoading) {
+    const loadingMessage = planStatus?.status === 'processing' 
+      ? 'Researching keywords...' 
+      : 'Processing your request...'
+    return <LoadingScreen message={loadingMessage} />
+  }
+
+  // Show result if completed
+  if (planStatus?.status === 'completed' && planStatus.plan) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background p-8">
+        <div className="max-w-4xl mx-auto w-full">
+          <h1 className="text-4xl font-bold text-text-primary mb-6">
+            {planStatus.plan.title}
+          </h1>
+          {planStatus.plan.intro && (
+            <p className="text-text-secondary text-lg mb-8">{planStatus.plan.intro}</p>
+          )}
+          <div className="space-y-6">
+            {planStatus.plan.sections.map((section, idx) => (
+              <div key={idx} className="border-l-4 border-accent pl-4">
+                <h2 className="text-2xl font-semibold text-text-primary mb-2">
+                  {section.heading}
+                </h2>
+                {section.description && (
+                  <p className="text-text-secondary mb-4">{section.description}</p>
+                )}
+                {section.subsections.length > 0 && (
+                  <div className="ml-4 space-y-2">
+                    {section.subsections.map((subsection, subIdx) => (
+                      <div key={subIdx}>
+                        <h3 className="text-xl font-medium text-text-primary mb-1">
+                          {subsection.heading}
+                        </h3>
+                        {subsection.description && (
+                          <p className="text-text-secondary text-sm">
+                            {subsection.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              setPlanStatus(null)
+              setJobId(null)
+              setTopic('')
+            }}
+            className="mt-8 px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all"
+          >
+            Generate Another Plan
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if failed
+  if (planStatus?.status === 'failed') {
+    return (
+      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-8">
+        <div className="max-w-2xl w-full text-center">
+          <h1 className="text-3xl font-bold text-text-primary mb-4">
+            Plan Generation Failed
+          </h1>
+          <p className="text-text-secondary mb-8">
+            {planStatus.error || 'An unknown error occurred'}
+          </p>
+          <button
+            onClick={() => {
+              setPlanStatus(null)
+              setJobId(null)
+            }}
+            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
