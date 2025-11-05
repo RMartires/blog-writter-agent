@@ -6,7 +6,7 @@ import { BlogPlan, BlogSection, SubSection } from '@/types/api'
 interface PlanReviewScreenProps {
   plan: BlogPlan
   onBack: () => void
-  onGenerate: () => void
+  onGenerate: (plan: BlogPlan) => void
 }
 
 export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanReviewScreenProps) {
@@ -326,7 +326,7 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
               Back
             </button>
             <button
-              onClick={onGenerate}
+              onClick={() => onGenerate(editedPlan)}
               className="flex-1 px-8 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl"
             >
               Generate Blog Post

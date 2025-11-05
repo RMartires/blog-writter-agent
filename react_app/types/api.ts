@@ -44,3 +44,17 @@ export interface SubSection {
   description: string | null
 }
 
+export interface GenerateBlogRequest {
+  plan: BlogPlan
+  plan_job_id?: string
+}
+
+export interface BlogStatusResponse {
+  job_id: string
+  status: JobStatus
+  created_at: string
+  updated_at: string
+  blog: string | null
+  error: string | null
+}
+

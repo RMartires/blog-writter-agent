@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { generatePlan, getPlanStatus } from '@/lib/api'
-import { PlanStatusResponse, JobStatus } from '@/types/api'
+import { generatePlan, getPlanStatus, generateBlog, getBlogStatus } from '@/lib/api'
+import { PlanStatusResponse, BlogStatusResponse, JobStatus, BlogPlan } from '@/types/api'
 import LoadingScreen from '@/components/LoadingScreen'
 import PlanReviewScreen from '@/components/PlanReviewScreen'
 
@@ -12,13 +12,20 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [planStatus, setPlanStatus] = useState<PlanStatusResponse | null>(null)
+  const [blogJobId, setBlogJobId] = useState<string | null>(null)
+  const [blogStatus, setBlogStatus] = useState<BlogStatusResponse | null>(null)
+  const [isGeneratingBlog, setIsGeneratingBlog] = useState(false)
   const pollingIntervalRef = useRef<number | null>(null)
+  const blogPollingIntervalRef = useRef<number | null>(null)
 
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current !== null) {
         clearInterval(pollingIntervalRef.current)
+      }
+      if (blogPollingIntervalRef.current !== null) {
+        clearInterval(blogPollingIntervalRef.current)
       }
     }
   }, [])
@@ -55,6 +62,38 @@ export default function Home() {
     pollingIntervalRef.current = window.setInterval(pollStatus, 2000)
   }, [jobId, isLoading])
 
+  // Poll for blog generation job status
+  useEffect(() => {
+    if (!blogJobId || !isGeneratingBlog) return
+
+    const pollBlogStatus = async () => {
+      try {
+        const status = await getBlogStatus(blogJobId)
+        setBlogStatus(status)
+
+        if (status.status === JobStatus.COMPLETED || status.status === JobStatus.FAILED) {
+          setIsGeneratingBlog(false)
+          if (blogPollingIntervalRef.current !== null) {
+            clearInterval(blogPollingIntervalRef.current)
+            blogPollingIntervalRef.current = null
+          }
+        }
+      } catch (error) {
+        console.error('Error polling blog job status:', error)
+        setIsGeneratingBlog(false)
+        if (blogPollingIntervalRef.current !== null) {
+          clearInterval(blogPollingIntervalRef.current)
+          blogPollingIntervalRef.current = null
+        }
+        alert('Error checking blog generation status. Please try again.')
+      }
+    }
+
+    // Poll immediately, then every 2 seconds
+    pollBlogStatus()
+    blogPollingIntervalRef.current = window.setInterval(pollBlogStatus, 2000)
+  }, [blogJobId, isGeneratingBlog])
+
   const handleGenerate = async () => {
     if (!topic.trim()) {
       alert('Please enter a topic or keywords')
@@ -80,7 +119,123 @@ export default function Home() {
     }
   }
 
-  // Show loading screen while processing
+  const handleGenerateBlog = async (plan: BlogPlan) => {
+    try {
+      setIsGeneratingBlog(true)
+      setBlogStatus(null)
+      
+      // Generate session ID
+      const sessionId = crypto.randomUUID()
+      
+      // Call generate-blog API with plan and plan_job_id if available
+      const response = await generateBlog(sessionId, { 
+        plan,
+        plan_job_id: jobId || undefined
+      })
+      setBlogJobId(response.job_id)
+      
+      // Polling will be handled by useEffect
+    } catch (error) {
+      console.error('Error generating blog:', error)
+      setIsGeneratingBlog(false)
+      alert(error instanceof Error ? error.message : 'Failed to generate blog. Please try again.')
+    }
+  }
+
+  // Show loading screen while generating blog
+  if (isGeneratingBlog) {
+    const loadingMessage = blogStatus?.status === JobStatus.PROCESSING
+      ? 'Generating your blog post...'
+      : 'Starting blog generation...'
+    return <LoadingScreen message={loadingMessage} />
+  }
+
+  // Show blog result if completed
+  if (blogStatus?.status === JobStatus.COMPLETED && blogStatus.blog) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <header className="flex justify-between items-center px-8 py-6 border-b border-input-bg">
+          <div className="flex items-center gap-2">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="text-accent"
+            >
+              <path
+                d="M4 19.5V4.5C4 3.897 4.447 3.5 5 3.5H19C19.553 3.5 20 3.897 20 4.5V19.5C20 20.103 19.553 20.5 19 20.5H5C4.447 20.5 4 20.103 4 19.5Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M4 8L12 13L20 8"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="text-text-primary text-xl font-semibold">
+              AI Blog Writer
+            </span>
+          </div>
+        </header>
+        <main className="flex-1 p-8 overflow-y-auto">
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-6">
+              <button
+                onClick={() => {
+                  setBlogStatus(null)
+                  setBlogJobId(null)
+                }}
+                className="px-4 py-2 text-text-secondary hover:text-accent transition-colors"
+              >
+                ← Back to Plan
+              </button>
+            </div>
+            <div className="bg-input-bg/50 rounded-lg p-8 border border-input-bg">
+              <div className="prose prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap text-text-primary font-mono text-sm">
+                  {blogStatus.blog}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // Show error if blog generation failed
+  if (blogStatus?.status === JobStatus.FAILED) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-8">
+        <div className="max-w-2xl w-full text-center">
+          <h1 className="text-3xl font-bold text-text-primary mb-4">
+            Blog Generation Failed
+          </h1>
+          <p className="text-text-secondary mb-8">
+            {blogStatus.error || 'An unknown error occurred'}
+          </p>
+          <button
+            onClick={() => {
+              setBlogStatus(null)
+              setBlogJobId(null)
+            }}
+            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all"
+          >
+            Back to Plan
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading screen while processing plan
   if (isLoading) {
     const loadingMessage = planStatus?.status === JobStatus.PROCESSING
       ? 'Researching keywords...'
@@ -88,7 +243,7 @@ export default function Home() {
     return <LoadingScreen message={loadingMessage} />
   }
 
-  // Show review screen if completed
+  // Show review screen if plan completed
   if (planStatus?.status === JobStatus.COMPLETED && planStatus.plan) {
     return (
       <PlanReviewScreen
@@ -98,10 +253,7 @@ export default function Home() {
           setJobId(null)
           setTopic('')
         }}
-        onGenerate={() => {
-          // TODO: Implement blog generation with edited plan
-          alert('Blog generation feature coming soon!')
-        }}
+        onGenerate={handleGenerateBlog}
       />
     )
   }

@@ -42,4 +42,5 @@ MONGO_DB_URI = os.getenv("MONGO_DB_URI", "mongodb://localhost:27017/")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "blog_researcher")
 MONGO_COLLECTION_ARTICLES = "articles"
 MONGO_COLLECTION_PLAN_JOBS = "plan_generation_jobs"
+MONGO_COLLECTION_BLOG_JOBS = "blog_generation_jobs"
 
