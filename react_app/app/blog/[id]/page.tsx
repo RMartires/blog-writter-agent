@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getBlogStatus } from '@/lib/api'
 import { BlogStatusResponse, JobStatus } from '@/types/api'
+import { useAuth } from '@/components/AuthProvider'
 import LoadingScreen from '@/components/LoadingScreen'
 import ReactMarkdown from 'react-markdown'
-import { useAuth } from '@/components/AuthProvider'
+import Header from '@/components/Header'
 
 export default function BlogPage() {
   const params = useParams()
@@ -147,69 +148,11 @@ export default function BlogPage() {
 
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <header className="flex justify-between items-center px-8 py-6 border-b border-input-bg">
-          <div className="flex items-center gap-2">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-accent"
-            >
-              <path
-                d="M4 19.5V4.5C4 3.897 4.447 3.5 5 3.5H19C19.553 3.5 20 3.897 20 4.5V19.5C20 20.103 19.553 20.5 19 20.5H5C4.447 20.5 4 20.103 4 19.5Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M4 8L12 13L20 8"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="text-text-primary text-xl font-semibold">
-              AI Blog Writer
-            </span>
-          </div>
-        </header>
+        <Header showBackButton backUrl={blogStatus?.plan_job_id ? `/plan/${blogStatus.plan_job_id}` : '/'} backLabel={blogStatus?.plan_job_id ? 'Back to Plan' : 'Back to Home'} />
         <main className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
             {/* Action Bar */}
-            <div className="mb-6 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  if (blogStatus?.plan_job_id) {
-                    router.push(`/plan/${blogStatus.plan_job_id}`)
-                  } else {
-                    router.push('/')
-                  }
-                }}
-                className="px-4 py-2 text-text-secondary hover:text-accent transition-colors flex items-center gap-2"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="text-current"
-                >
-                  <path
-                    d="M19 12H5M5 12L12 19M5 12L12 5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                {blogStatus?.plan_job_id ? 'Back to Plan' : 'Back to Home'}
-              </button>
-              
+            <div className="mb-6 flex items-center justify-end">
               <div className="flex items-center gap-3">
                 {/* Read/Edit Mode Toggle */}
                 <div className="flex items-center gap-2 bg-input-bg rounded-lg p-1">
