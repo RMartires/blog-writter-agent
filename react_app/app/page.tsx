@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { generatePlan, getPlanStatus } from '@/lib/api'
-import { PlanStatusResponse } from '@/types/api'
+import { PlanStatusResponse, JobStatus } from '@/types/api'
 import LoadingScreen from '@/components/LoadingScreen'
+import PlanReviewScreen from '@/components/PlanReviewScreen'
 
 export default function Home() {
   const [mode, setMode] = useState<'quick' | 'detailed'>('quick')
@@ -31,7 +32,7 @@ export default function Home() {
         const status = await getPlanStatus(jobId)
         setPlanStatus(status)
 
-        if (status.status === 'completed' || status.status === 'failed') {
+        if (status.status === JobStatus.COMPLETED || status.status === JobStatus.FAILED) {
           setIsLoading(false)
           if (pollingIntervalRef.current !== null) {
             clearInterval(pollingIntervalRef.current)
@@ -81,68 +82,32 @@ export default function Home() {
 
   // Show loading screen while processing
   if (isLoading) {
-    const loadingMessage = planStatus?.status === 'processing' 
-      ? 'Researching keywords...' 
+    const loadingMessage = planStatus?.status === JobStatus.PROCESSING
+      ? 'Researching keywords...'
       : 'Processing your request...'
     return <LoadingScreen message={loadingMessage} />
   }
 
-  // Show result if completed
-  if (planStatus?.status === 'completed' && planStatus.plan) {
+  // Show review screen if completed
+  if (planStatus?.status === JobStatus.COMPLETED && planStatus.plan) {
     return (
-      <div className="min-h-screen flex flex-col bg-background p-8">
-        <div className="max-w-4xl mx-auto w-full">
-          <h1 className="text-4xl font-bold text-text-primary mb-6">
-            {planStatus.plan.title}
-          </h1>
-          {planStatus.plan.intro && (
-            <p className="text-text-secondary text-lg mb-8">{planStatus.plan.intro}</p>
-          )}
-          <div className="space-y-6">
-            {planStatus.plan.sections.map((section, idx) => (
-              <div key={idx} className="border-l-4 border-accent pl-4">
-                <h2 className="text-2xl font-semibold text-text-primary mb-2">
-                  {section.heading}
-                </h2>
-                {section.description && (
-                  <p className="text-text-secondary mb-4">{section.description}</p>
-                )}
-                {section.subsections.length > 0 && (
-                  <div className="ml-4 space-y-2">
-                    {section.subsections.map((subsection, subIdx) => (
-                      <div key={subIdx}>
-                        <h3 className="text-xl font-medium text-text-primary mb-1">
-                          {subsection.heading}
-                        </h3>
-                        {subsection.description && (
-                          <p className="text-text-secondary text-sm">
-                            {subsection.description}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => {
-              setPlanStatus(null)
-              setJobId(null)
-              setTopic('')
-            }}
-            className="mt-8 px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all"
-          >
-            Generate Another Plan
-          </button>
-        </div>
-      </div>
+      <PlanReviewScreen
+        plan={planStatus.plan}
+        onBack={() => {
+          setPlanStatus(null)
+          setJobId(null)
+          setTopic('')
+        }}
+        onGenerate={() => {
+          // TODO: Implement blog generation with edited plan
+          alert('Blog generation feature coming soon!')
+        }}
+      />
     )
   }
 
   // Show error if failed
-  if (planStatus?.status === 'failed') {
+  if (planStatus?.status === JobStatus.FAILED) {
     return (
       <div className="min-h-screen flex flex-col bg-background items-center justify-center px-8">
         <div className="max-w-2xl w-full text-center">

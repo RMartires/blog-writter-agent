@@ -1,5 +1,11 @@
 // API Response Types
 
+export enum JobStatus {
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
+}
+
 export interface GeneratePlanRequest {
   keyword: string
 }
@@ -12,7 +18,7 @@ export interface JobResponse {
 
 export interface PlanStatusResponse {
   job_id: string
-  status: 'processing' | 'completed' | 'failed'
+  status: JobStatus
   keyword: string
   created_at: string
   updated_at: string
