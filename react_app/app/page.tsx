@@ -5,15 +5,24 @@ import { useRouter } from 'next/navigation'
 import { generatePlan, getPlanStatus } from '@/lib/api'
 import { PlanStatusResponse, JobStatus } from '@/types/api'
 import LoadingScreen from '@/components/LoadingScreen'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function Home() {
   const router = useRouter()
+  const { user, loading: authLoading, signOut } = useAuth()
   const [mode, setMode] = useState<'quick' | 'detailed'>('quick')
   const [topic, setTopic] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [planStatus, setPlanStatus] = useState<PlanStatusResponse | null>(null)
   const pollingIntervalRef = useRef<number | null>(null)
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, authLoading, router])
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -87,6 +96,16 @@ export default function Home() {
     }
   }
 
+  // Show loading screen while checking auth
+  if (authLoading) {
+    return <LoadingScreen message="Loading..." />
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user) {
+    return null
+  }
+
   // Show loading screen while processing plan
   if (isLoading) {
     const loadingMessage = planStatus?.status === JobStatus.PROCESSING
@@ -152,23 +171,25 @@ export default function Home() {
             AI Blog Writer
           </span>
         </div>
-        <div className="w-10 h-10 rounded-full border-2 border-text-secondary flex items-center justify-center">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="text-text-secondary"
-          >
-            <path
-              d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+        <div className="flex items-center gap-4">
+          {user && (
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-text-primary text-sm font-medium">
+                  {user.email || user.user_metadata?.full_name || 'User'}
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-text-primary font-semibold">
+                {(user.email || user.user_metadata?.full_name || 'U')[0].toUpperCase()}
+              </div>
+              <button
+                onClick={signOut}
+                className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors text-sm"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

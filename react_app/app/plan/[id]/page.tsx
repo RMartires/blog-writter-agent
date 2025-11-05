@@ -7,16 +7,25 @@ import { PlanStatusResponse, JobStatus, BlogPlan } from '@/types/api'
 import LoadingScreen from '@/components/LoadingScreen'
 import PlanReviewScreen from '@/components/PlanReviewScreen'
 import { generateBlog } from '@/lib/api'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function PlanPage() {
   const params = useParams()
   const router = useRouter()
   const planId = params.id as string
+  const { user, loading: authLoading } = useAuth()
   
   const [planStatus, setPlanStatus] = useState<PlanStatusResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isGeneratingBlog, setIsGeneratingBlog] = useState(false)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, authLoading, router])
 
   useEffect(() => {
     if (!planId) return
@@ -83,6 +92,16 @@ export default function PlanPage() {
       setIsGeneratingBlog(false)
       alert(error instanceof Error ? error.message : 'Failed to generate blog. Please try again.')
     }
+  }
+
+  // Show loading screen while checking auth
+  if (authLoading) {
+    return <LoadingScreen message="Loading..." />
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user) {
+    return null
   }
 
   if (isLoading || isGeneratingBlog) {

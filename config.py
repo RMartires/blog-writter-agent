@@ -1,7 +1,13 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# Get the directory where this config.py file is located
+BASE_DIR = Path(__file__).resolve().parent
+
+# Load .env file from the project root (where config.py is located)
+env_path = BASE_DIR / '.env'
+load_dotenv(dotenv_path=env_path, override=True)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
@@ -43,4 +49,9 @@ MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "blog_researcher")
 MONGO_COLLECTION_ARTICLES = "articles"
 MONGO_COLLECTION_PLAN_JOBS = "plan_generation_jobs"
 MONGO_COLLECTION_BLOG_JOBS = "blog_generation_jobs"
+
+# Supabase Configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 

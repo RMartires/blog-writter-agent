@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -17,6 +17,7 @@ from backend.job_manager import (
 )
 from typing import Optional
 from backend.worker import start_worker, stop_worker, start_blog_worker, stop_blog_worker
+from backend.auth import get_current_user
 import config
 
 app = FastAPI(title="AI Blog Writer API", version="1.0.0")
@@ -109,10 +110,11 @@ class BlogStatusResponse(BaseModel):
     response_model=JobResponse,
     responses={
         400: {"model": ErrorResponse, "description": "Bad request"},
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
-def generate_plan(session_id: str, request: GeneratePlanRequest):
+def generate_plan(session_id: str, request: GeneratePlanRequest, user: dict = Depends(get_current_user)):
     """
     Create a job to generate a blog plan based on a keyword/topic.
     Returns immediately with job_id. Use GET /plan/{job_id} to check status.
@@ -152,12 +154,14 @@ def generate_plan(session_id: str, request: GeneratePlanRequest):
         )
     
     try:
-        # Check if a completed job with the same keyword already exists
-        existing_job = find_job_by_keyword(jobs_collection, keyword, status="completed")
+        user_id = user["user_id"]
+        
+        # Check if a completed job with the same keyword already exists for this user
+        existing_job = find_job_by_keyword(jobs_collection, keyword, user_id, status="completed")
         
         if existing_job:
             # Return existing job_id
-            print(f"[{session_id}] ♻️  Reusing existing job {existing_job['job_id']} for keyword: {keyword}")
+            print(f"[{session_id}] ♻️  Reusing existing job {existing_job['job_id']} for keyword: {keyword}, user_id: {user_id}")
             return JobResponse(
                 job_id=existing_job["job_id"],
                 status=existing_job["status"],
@@ -169,7 +173,7 @@ def generate_plan(session_id: str, request: GeneratePlanRequest):
         job_id = str(uuid.uuid4())
         
         # Create job in database with status "processing"
-        success = create_job(jobs_collection, job_id, keyword, session_id=session_id)
+        success = create_job(jobs_collection, job_id, keyword, user_id, session_id=session_id)
         
         if not success:
             raise HTTPException(
@@ -200,10 +204,11 @@ def generate_plan(session_id: str, request: GeneratePlanRequest):
     "/plan/{job_id}",
     response_model=PlanStatusResponse,
     responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
         404: {"model": ErrorResponse, "description": "Job not found"},
     },
 )
-def get_plan_status(job_id: str):
+def get_plan_status(job_id: str, user: dict = Depends(get_current_user)):
     """
     Get the status and result of a plan generation job.
     
@@ -219,7 +224,9 @@ def get_plan_status(job_id: str):
             detail="Database connection not available"
         )
     
-    job = get_job(jobs_collection, job_id)
+    user_id = user["user_id"]
+    # Get job filtered by user_id to ensure users can only access their own jobs
+    job = get_job(jobs_collection, job_id, user_id=user_id)
     
     if job is None:
         raise HTTPException(
@@ -259,10 +266,11 @@ def get_plan_status(job_id: str):
     response_model=JobResponse,
     responses={
         400: {"model": ErrorResponse, "description": "Bad request"},
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
-def generate_blog(session_id: str, request: GenerateBlogRequest):
+def generate_blog(session_id: str, request: GenerateBlogRequest, user: dict = Depends(get_current_user)):
     """
     Create a job to generate a blog post from a plan.
     Returns immediately with job_id. Use GET /blog/{job_id} to check status.
@@ -310,9 +318,11 @@ def generate_blog(session_id: str, request: GenerateBlogRequest):
                 detail=f"Invalid plan structure: {str(e)}"
             )
         
-        # If plan_job_id is provided, validate it exists and is completed
+        user_id = user["user_id"]
+        
+        # If plan_job_id is provided, validate it exists and is completed (and belongs to user)
         if request.plan_job_id:
-            plan_job = get_job(jobs_collection, request.plan_job_id)
+            plan_job = get_job(jobs_collection, request.plan_job_id, user_id=user_id)
             if plan_job is None:
                 raise HTTPException(
                     status_code=404,
@@ -324,16 +334,17 @@ def generate_blog(session_id: str, request: GenerateBlogRequest):
                     detail=f"Plan job {request.plan_job_id} is not completed (status: {plan_job.get('status')})"
                 )
             
-            # Check if a blog job already exists for this plan_job_id
+            # Check if a blog job already exists for this plan_job_id and user
             existing_blog_job = find_blog_job_by_plan_job_id(
                 blog_jobs_collection,
                 request.plan_job_id,
+                user_id,
                 status="completed"
             )
             
             if existing_blog_job:
                 # Return existing job_id
-                print(f"[{session_id}] ♻️  Reusing existing blog job {existing_blog_job['job_id']} for plan_job_id: {request.plan_job_id}")
+                print(f"[{session_id}] ♻️  Reusing existing blog job {existing_blog_job['job_id']} for plan_job_id: {request.plan_job_id}, user_id: {user_id}")
                 return JobResponse(
                     job_id=existing_blog_job["job_id"],
                     status=existing_blog_job["status"],
@@ -348,6 +359,7 @@ def generate_blog(session_id: str, request: GenerateBlogRequest):
             blog_jobs_collection,
             job_id,
             request.plan,
+            user_id,
             session_id=session_id,
             plan_job_id=request.plan_job_id
         )
@@ -381,10 +393,11 @@ def generate_blog(session_id: str, request: GenerateBlogRequest):
     "/blog/{job_id}",
     response_model=BlogStatusResponse,
     responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
         404: {"model": ErrorResponse, "description": "Job not found"},
     },
 )
-def get_blog_status(job_id: str):
+def get_blog_status(job_id: str, user: dict = Depends(get_current_user)):
     """
     Get the status and result of a blog generation job.
     
@@ -400,7 +413,9 @@ def get_blog_status(job_id: str):
             detail="Database connection not available"
         )
     
-    job = get_blog_job(blog_jobs_collection, job_id)
+    user_id = user["user_id"]
+    # Get blog job filtered by user_id to ensure users can only access their own jobs
+    job = get_blog_job(blog_jobs_collection, job_id, user_id=user_id)
     
     if job is None:
         raise HTTPException(

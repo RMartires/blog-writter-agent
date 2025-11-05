@@ -6,17 +6,26 @@ import { getBlogStatus } from '@/lib/api'
 import { BlogStatusResponse, JobStatus } from '@/types/api'
 import LoadingScreen from '@/components/LoadingScreen'
 import ReactMarkdown from 'react-markdown'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function BlogPage() {
   const params = useParams()
   const router = useRouter()
   const blogId = params.id as string
+  const { user, loading: authLoading } = useAuth()
   
   const [blogStatus, setBlogStatus] = useState<BlogStatusResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isReadMode, setIsReadMode] = useState(true)
   const [editedBlogContent, setEditedBlogContent] = useState<string>('')
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, authLoading, router])
 
   useEffect(() => {
     if (!blogId) return
@@ -90,6 +99,16 @@ export default function BlogPage() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+  }
+
+  // Show loading screen while checking auth
+  if (authLoading) {
+    return <LoadingScreen message="Loading..." />
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user) {
+    return null
   }
 
   if (isLoading) {
