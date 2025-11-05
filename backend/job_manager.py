@@ -26,6 +26,7 @@ def init_jobs_collection() -> Optional[Collection]:
         collection.create_index("job_id", unique=True)
         collection.create_index("status")
         collection.create_index("created_at")
+        collection.create_index("keyword")  # For keyword-based searches
         
         logger.info(f"Connected to MongoDB: {config.MONGO_DB_NAME}.{config.MONGO_COLLECTION_PLAN_JOBS}")
         return collection
@@ -118,4 +119,39 @@ def get_processing_jobs(collection: Collection, limit: int = 10) -> list:
     except Exception as e:
         logger.error(f"Error getting processing jobs: {e}")
         return []
+
+
+def find_job_by_keyword(collection: Collection, keyword: str, status: str = "completed") -> Optional[Dict[str, Any]]:
+    """
+    Find an existing job by keyword (case-insensitive).
+    Prefer completed jobs, but can search for any status.
+    
+    Args:
+        collection: MongoDB collection
+        keyword: Keyword to search for
+        status: Status to filter by (default: "completed")
+        
+    Returns:
+        Job document if found, None otherwise
+    """
+    try:
+        # Case-insensitive search for keyword
+        # Find the most recent completed job with matching keyword
+        job = collection.find_one(
+            {
+                "keyword": {"$regex": f"^{keyword}$", "$options": "i"},  # Case-insensitive exact match
+                "status": status
+            },
+            sort=[("created_at", -1)]  # Get most recent first
+        )
+        
+        if job:
+            job["_id"] = str(job["_id"])
+            logger.info(f"Found existing job {job['job_id']} for keyword: {keyword}")
+            return job
+        
+        return None
+    except Exception as e:
+        logger.error(f"Error finding job by keyword '{keyword}': {e}")
+        return None
 

@@ -10,7 +10,7 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.models import BlogPlan
-from backend.job_manager import init_jobs_collection, create_job, get_job, update_job_status
+from backend.job_manager import init_jobs_collection, create_job, get_job, update_job_status, find_job_by_keyword
 from backend.worker import start_worker, stop_worker
 import config
 
@@ -122,6 +122,19 @@ def generate_plan(session_id: str, request: GeneratePlanRequest):
         )
     
     try:
+        # Check if a completed job with the same keyword already exists
+        existing_job = find_job_by_keyword(jobs_collection, keyword, status="completed")
+        
+        if existing_job:
+            # Return existing job_id
+            print(f"[{session_id}] ♻️  Reusing existing job {existing_job['job_id']} for keyword: {keyword}")
+            return JobResponse(
+                job_id=existing_job["job_id"],
+                status=existing_job["status"],
+                message="Found existing plan. Use GET /plan/{job_id} to retrieve it."
+            )
+        
+        # No existing job found, create a new one
         # Generate unique job ID
         job_id = str(uuid.uuid4())
         
