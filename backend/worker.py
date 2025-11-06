@@ -12,10 +12,10 @@ from typing import Optional, List, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.researcher import ResearchAgent
-from agents.rag_manager import RAGManager
 from agents.planner import PlannerAgent
 from agents.writer import WriterAgent
 from agents.models import BlogPlan
+from langchain.schema import Document
 from backend.job_manager import (
     init_jobs_collection, get_processing_jobs, update_job_status, get_job,
     init_blog_jobs_collection, get_processing_blog_jobs, update_blog_job_status
@@ -23,6 +23,49 @@ from backend.job_manager import (
 import config
 
 logger = logging.getLogger(__name__)
+
+# Maximum length for research content
+MAX_RESEARCH_LENGTH = 131072
+
+
+def trim_research_content(research_data: List[Dict[str, Any]], max_length: int = MAX_RESEARCH_LENGTH) -> str:
+    """
+    Concatenate research data content with length limit
+    
+    Args:
+        research_data: List of research data dictionaries with 'title' and 'content' keys
+        max_length: Maximum length in characters (default: 131072)
+        
+    Returns:
+        Concatenated research content string, limited to max_length characters
+    """
+    research_parts = []
+    current_length = 0
+    
+    for r in research_data:
+        part = f"{r.get('title', 'Untitled')}\n\n{r.get('content', '')}"
+        separator = "\n\n" if research_parts else ""
+        
+        # Check if adding this part would exceed the limit
+        if current_length + len(separator) + len(part) > max_length:
+            # Try to add partial content if there's room
+            remaining = max_length - current_length - len(separator)
+            if remaining > 100:  # Only add if there's meaningful space
+                part = part[:remaining]
+                research_parts.append(part)
+                current_length += len(separator) + len(part)
+            break
+        else:
+            research_parts.append(part)
+            current_length += len(separator) + len(part)
+    
+    research_content = "\n\n".join(research_parts)
+    
+    # Ensure we don't exceed the limit (safety check)
+    if len(research_content) > max_length:
+        research_content = research_content[:max_length]
+    
+    return research_content
 
 
 class PlanGenerationWorker:
@@ -130,7 +173,6 @@ class PlanGenerationWorker:
         """
         # Initialize agents with session ID for trace grouping
         researcher = ResearchAgent(config.TAVILY_API_KEY)
-        rag_manager = RAGManager(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
         planner = PlannerAgent(
             config.OPENROUTER_API_KEY,
             config.OPENROUTER_MODEL,
@@ -149,18 +191,10 @@ class PlanGenerationWorker:
         
         logger.info(f"[{session_id}] ✓ Found {len(research_data)} relevant sources")
         
-        # Step 2: Build RAG knowledge base
-        logger.info(f"[{session_id}] 📚 Building knowledge base...")
-        rag_manager.ingest_research(research_data)
-        logger.info(f"[{session_id}] ✓ Knowledge base ready")
+        # Step 2: Create research summary for planner (with length limit)
+        research_summary = trim_research_content(research_data, max_length=MAX_RESEARCH_LENGTH)
         
-        # Step 3: Create research summary for planner
-        research_summary = "\n".join([
-            f"- {r['title']}: {r['content']}"
-            for r in research_data
-        ])
-        
-        # Step 4: Generate plan
+        # Step 3: Generate plan
         logger.info(f"[{session_id}] 📋 Planning blog structure...")
         plan = planner.create_plan(
             topic=keyword,
@@ -299,8 +333,7 @@ class BlogGenerationWorker:
         # Extract topic from plan title
         topic = plan.title
         
-        # Initialize agents with session ID for trace grouping
-        rag_manager = RAGManager(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL)
+        # Initialize writer agent
         writer = WriterAgent(
             config.OPENROUTER_API_KEY,
             config.OPENROUTER_MODEL,
@@ -323,19 +356,30 @@ class BlogGenerationWorker:
         else:
             logger.info(f"[{session_id}] ♻️  Reusing research data ({len(research_data)} sources)")
         
-        # Step 2: Build RAG knowledge base
-        logger.info(f"[{session_id}] 📚 Building knowledge base...")
-        rag_manager.ingest_research(research_data)
-        logger.info(f"[{session_id}] ✓ Knowledge base ready")
+        # Step 2: Concatenate research data content with length limit
+        research_content = trim_research_content(research_data, max_length=MAX_RESEARCH_LENGTH)
+        
+        # Create a simple Document object with all research content
+        research_doc = Document(
+            page_content=research_content,
+            metadata={
+                "source": "research_data",
+                "sources_count": len(research_data),
+                "content_length": len(research_content),
+                "truncated": len(research_content) >= MAX_RESEARCH_LENGTH
+            }
+        )
+        research_context = [research_doc]
+        
+        logger.info(f"[{session_id}] ✓ Prepared research context ({len(research_content)}/{MAX_RESEARCH_LENGTH} chars)")
         
         # Step 3: Generate introduction
         logger.info(f"[{session_id}] ✍️ Generating introduction...")
-        intro_context = rag_manager.retrieve_context(topic, k=3)
         
         intro_content = writer.generate_intro(
             topic=topic,
             plan=plan,
-            context_docs=intro_context,
+            context_docs=research_context,
             length_guidance=plan.intro_length_guidance
         )
         logger.info(f"[{session_id}] ✓ Introduction complete")
@@ -347,17 +391,14 @@ class BlogGenerationWorker:
         for i, section in enumerate(plan.sections, 1):
             logger.info(f"[{session_id}] 📝 Section {i}/{len(plan.sections)}: {section.heading}")
             
-            # Retrieve section-specific context
-            section_query = f"{topic} {section.heading}"
-            section_context = rag_manager.retrieve_context(section_query, k=3)
-            
+            # Use the same research context for all sections
             # Generate section (with or without subsections)
             section_content = writer.generate_section_with_subsections(
                 section=section,
                 topic=topic,
-                context_docs=section_context,
+                context_docs=research_context,
                 previous_sections=section_contents,
-                rag_manager=rag_manager
+                rag_manager=None  # No RAG manager needed
             )
             
             section_contents.append(section_content)

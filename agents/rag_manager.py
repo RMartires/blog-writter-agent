@@ -5,6 +5,31 @@ from langchain.schema import Document
 from typing import List, Dict
 
 
+def _embed_chunk_worker(text_chunk: List[str], batch_size: int) -> List[np.ndarray]:
+    """
+    Module-level function for embedding chunks in multiprocessing workers.
+    This must be at module level to be picklable.
+    
+    Args:
+        text_chunk: List of text strings to embed
+        batch_size: Batch size for embedding generation
+        
+    Returns:
+        List of numpy arrays representing embeddings
+    """
+    # Create a new model instance for this worker process
+    local_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+    embeddings = []
+    try:
+        for emb in local_model.embed(text_chunk, batch_size=batch_size):
+            embeddings.append(np.array(emb))
+    except (TypeError, AttributeError):
+        # Fallback if batch_size parameter not supported
+        for emb in local_model.embed(text_chunk):
+            embeddings.append(np.array(emb))
+    return embeddings
+
+
 class RAGManager:
     """Manager for RAG system using in-memory FAISS vector store"""
     
