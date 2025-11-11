@@ -1,8 +1,11 @@
+from typing import Dict, List
+
+import numpy as np
+from fastembed import TextEmbedding
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import FastEmbedEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.schema import Document
-from typing import List, Dict
 
 
 def _embed_chunk_worker(text_chunk: List[str], batch_size: int) -> List[np.ndarray]:

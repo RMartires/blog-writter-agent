@@ -171,6 +171,8 @@ class PlanGenerationWorker:
         Returns:
             Tuple of (BlogPlan object, research_data list)
         """
+        start_time = time.perf_counter()
+
         # Initialize agents with session ID for trace grouping
         researcher = ResearchAgent(config.TAVILY_API_KEY)
         planner = PlannerAgent(
@@ -203,6 +205,9 @@ class PlanGenerationWorker:
         )
         
         logger.info(f"[{session_id}] ✓ Plan created: '{plan.title}' with {plan.get_section_count()} sections")
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.info(f"[{session_id}] 🕒 Plan generation finished in {duration_ms:.2f} ms")
         
         return plan, research_data
 
@@ -330,6 +335,8 @@ class BlogGenerationWorker:
         Returns:
             Generated blog content as markdown string
         """
+        start_time = time.perf_counter()
+
         # Extract topic from plan title
         topic = plan.title
         
@@ -417,6 +424,9 @@ class BlogGenerationWorker:
         final_blog = f"# {plan.title}\n\n{final_blog}"
         
         logger.info(f"[{session_id}] ✓ Blog generation complete")
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.info(f"[{session_id}] 🕒 Blog generation finished in {duration_ms:.2f} ms")
         
         return final_blog
 
