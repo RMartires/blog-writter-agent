@@ -6,7 +6,7 @@ import logging
 import sys
 import os
 from threading import Thread
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple, Callable
 
 # Add parent directory to path to import agents
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -18,7 +18,8 @@ from agents.models import BlogPlan
 from langchain.schema import Document
 from backend.job_manager import (
     init_jobs_collection, get_processing_jobs, update_job_status, get_job,
-    init_blog_jobs_collection, get_processing_blog_jobs, update_blog_job_status
+    init_blog_jobs_collection, get_processing_blog_jobs, update_blog_job_status,
+    append_blog_job_section
 )
 import config
 
@@ -291,15 +292,33 @@ class BlogGenerationWorker:
                             else:
                                 logger.warning(f"[{session_id}] Plan job {plan_job_id} not found or not completed")
                         
+                        # Reset sections array before generation
+                        update_blog_job_status(
+                            self.collection,
+                            job_id,
+                            status="processing",
+                            sections=[]
+                        )
+
                         # Process the job
-                        blog_content = self._generate_blog(plan, session_id, research_data)
+                        blog_content, structured_sections = self._generate_blog(
+                            plan,
+                            session_id,
+                            research_data,
+                            section_callback=lambda section_entry: append_blog_job_section(
+                                self.collection,
+                                job_id,
+                                section_entry
+                            )
+                        )
                         
                         # Update job status to completed
                         update_blog_job_status(
                             self.collection,
                             job_id,
                             status="completed",
-                            blog=blog_content
+                            blog=blog_content,
+                            sections=structured_sections
                         )
                         
                         logger.info(f"Blog job {job_id} completed successfully")
@@ -323,7 +342,13 @@ class BlogGenerationWorker:
                 logger.error(f"Error in blog worker loop: {e}")
                 time.sleep(self.poll_interval)
     
-    def _generate_blog(self, plan: BlogPlan, session_id: str, research_data: Optional[List[Dict[str, Any]]] = None) -> str:
+    def _generate_blog(
+        self,
+        plan: BlogPlan,
+        session_id: str,
+        research_data: Optional[List[Dict[str, Any]]] = None,
+        section_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+    ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Generate a blog post from a plan
         
@@ -333,7 +358,7 @@ class BlogGenerationWorker:
             research_data: Optional pre-researched data to reuse (skips research step if provided)
             
         Returns:
-            Generated blog content as markdown string
+            Tuple of generated blog content as markdown string and structured sections list
         """
         start_time = time.perf_counter()
 
@@ -394,6 +419,7 @@ class BlogGenerationWorker:
         # Step 4: Generate sections
         logger.info(f"[{session_id}] ✍️ Generating sections...")
         section_contents = []
+        structured_sections: List[Dict[str, Any]] = []
         
         for i, section in enumerate(plan.sections, 1):
             logger.info(f"[{session_id}] 📝 Section {i}/{len(plan.sections)}: {section.heading}")
@@ -409,6 +435,18 @@ class BlogGenerationWorker:
             )
             
             section_contents.append(section_content)
+            structured_sections.append(
+                {
+                    "index": i,
+                    "heading": section.heading,
+                    "content": section_content
+                }
+            )
+            if section_callback:
+                try:
+                    section_callback(structured_sections[-1])
+                except Exception as callback_error:
+                    logger.error(f"[{session_id}] Error while handling section callback: {callback_error}")
             logger.info(f"[{session_id}] ✓ Section {i} complete")
         
         # Step 5: Combine all content
@@ -428,7 +466,7 @@ class BlogGenerationWorker:
         duration_ms = (time.perf_counter() - start_time) * 1000
         logger.info(f"[{session_id}] 🕒 Blog generation finished in {duration_ms:.2f} ms")
         
-        return final_blog
+        return final_blog, structured_sections
 
 
 # Global worker instances

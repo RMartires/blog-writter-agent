@@ -208,6 +208,7 @@ def create_blog_job(collection: Collection, job_id: str, plan: dict, user_id: st
             "updated_at": datetime.utcnow(),
             "session_id": session_id,
             "blog": None,
+            "sections": [],
             "error": None
         }
         
@@ -245,9 +246,10 @@ def update_blog_job_status(
     job_id: str,
     status: str,
     blog: Optional[str] = None,
-    error: Optional[str] = None
+    error: Optional[str] = None,
+    sections: Optional[List[Dict[str, Any]]] = None
 ) -> bool:
-    """Update blog job status and optionally blog content or error"""
+    """Update blog job status and optionally blog content, sections, or error"""
     try:
         update_data = {
             "status": status,
@@ -258,6 +260,8 @@ def update_blog_job_status(
             update_data["blog"] = blog
         if error is not None:
             update_data["error"] = error
+        if sections is not None:
+            update_data["sections"] = sections
         
         result = collection.update_one(
             {"job_id": job_id},
@@ -273,6 +277,33 @@ def update_blog_job_status(
             
     except Exception as e:
         logger.error(f"Error updating blog job {job_id}: {e}")
+        return False
+
+
+def append_blog_job_section(
+    collection: Collection,
+    job_id: str,
+    section: Dict[str, Any]
+) -> bool:
+    """Append a single section entry to a blog job"""
+    try:
+        result = collection.update_one(
+            {"job_id": job_id},
+            {
+                "$push": {"sections": section},
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
+
+        if result.modified_count > 0:
+            logger.info(f"Appended section to blog job {job_id}")
+            return True
+        else:
+            logger.warning(f"No blog job found to append section for job {job_id}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Error appending section to blog job {job_id}: {e}")
         return False
 
 
