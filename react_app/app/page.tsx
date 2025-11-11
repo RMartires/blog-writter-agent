@@ -45,6 +45,13 @@ export default function Home() {
           
           // Navigate to plan page when completed
           if (status.status === JobStatus.COMPLETED) {
+            if (typeof window !== 'undefined') {
+              try {
+                sessionStorage.setItem(`planStatus-${jobId}`, JSON.stringify(status))
+              } catch (error) {
+                console.warn('Unable to cache plan status in sessionStorage:', error)
+              }
+            }
             router.push(`/plan/${jobId}`)
           }
         }

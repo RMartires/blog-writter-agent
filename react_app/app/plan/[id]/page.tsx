@@ -30,6 +30,29 @@ export default function PlanPage() {
   useEffect(() => {
     if (!planId) return
 
+    const sessionKey = `planStatus-${planId}`
+    let hasPrefetchedPlan = false
+
+    if (typeof window !== 'undefined') {
+      const cachedStatus = sessionStorage.getItem(sessionKey)
+      if (cachedStatus) {
+        try {
+          const parsedStatus = JSON.parse(cachedStatus) as PlanStatusResponse
+          setPlanStatus(parsedStatus)
+          setIsLoading(false)
+          hasPrefetchedPlan = true
+        } catch (error) {
+          console.error('Failed to parse cached plan status:', error)
+        } finally {
+          sessionStorage.removeItem(sessionKey)
+        }
+      }
+    }
+
+    if (hasPrefetchedPlan) {
+      return
+    }
+
     const fetchPlan = async () => {
       try {
         const status = await getPlanStatus(planId)
