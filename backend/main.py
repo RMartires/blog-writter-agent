@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import sys
 import os
 import uuid
@@ -15,7 +15,6 @@ from backend.job_manager import (
     init_blog_jobs_collection, create_blog_job, get_blog_job, update_blog_job_status,
     find_blog_job_by_plan_job_id
 )
-from typing import Optional
 from backend.worker import start_worker, stop_worker, start_blog_worker, stop_blog_worker
 from backend.auth import get_current_user
 import config
@@ -103,6 +102,7 @@ class BlogStatusResponse(BaseModel):
     blog: Optional[str] = None
     error: Optional[str] = None
     plan_job_id: Optional[str] = None
+    sections: Optional[List[Dict[str, Any]]] = None
 
 
 @app.post(
@@ -446,7 +446,8 @@ def get_blog_status(job_id: str, user: dict = Depends(get_current_user)):
         updated_at=updated_at,
         blog=job.get("blog"),
         error=job.get("error"),
-        plan_job_id=job.get("plan_job_id")
+        plan_job_id=job.get("plan_job_id"),
+        sections=job.get("sections")
     )
 
 
