@@ -1,6 +1,7 @@
 'use client'
 
 import Header from './Header'
+import Footer from './Footer'
 
 interface LoadingScreenProps {
   message?: string
@@ -25,32 +26,7 @@ export default function LoadingScreen({ message = 'Researching keywords...' }: L
         </p>
       </main>
 
-      {/* Footer */}
-      <footer className="flex justify-between items-center px-8 py-6 border-t border-input-bg">
-        <p className="text-text-secondary text-sm">
-          © 2024 AI Blog Writer. All rights reserved.
-        </p>
-        <div className="flex gap-6">
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            About
-          </a>
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            Privacy Policy
-          </a>
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            Contact
-          </a>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

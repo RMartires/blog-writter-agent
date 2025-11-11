@@ -2,6 +2,8 @@
 
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import Image from 'next/image'
 
 interface HeaderProps {
   showBackButton?: boolean
@@ -24,34 +26,19 @@ export default function Header({ showBackButton = false, backUrl, backLabel = 'B
   return (
     <header className="flex justify-between items-center px-8 py-6 border-b border-input-bg">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="text-accent"
-          >
-            <path
-              d="M4 19.5V4.5C4 3.897 4.447 3.5 5 3.5H19C19.553 3.5 20 3.897 20 4.5V19.5C20 20.103 19.553 20.5 19 20.5H5C4.447 20.5 4 20.103 4 19.5Z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M4 8L12 13L20 8"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+        <Link href="/" className="flex items-center gap-2">
+          <Image
+            src="/favicon.ico"
+            alt="AI Blog Writer logo"
+            width={28}
+            height={28}
+            className="rounded-md"
+            priority
+          />
           <span className="text-text-primary text-xl font-semibold">
             AI Blog Writer
           </span>
-        </div>
+        </Link>
         {showBackButton && (
           <button
             onClick={handleBack}

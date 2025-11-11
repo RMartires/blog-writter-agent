@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { BlogPlan, BlogSection, SubSection } from '@/types/api'
 import Header from './Header'
+import Footer from './Footer'
 
 interface PlanReviewScreenProps {
   plan: BlogPlan
@@ -288,32 +289,7 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="flex justify-between items-center px-8 py-6 border-t border-input-bg">
-        <p className="text-text-secondary text-sm">
-          © 2024 AI Blog Writer. All rights reserved.
-        </p>
-        <div className="flex gap-6">
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            About
-          </a>
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            Privacy Policy
-          </a>
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            Contact
-          </a>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

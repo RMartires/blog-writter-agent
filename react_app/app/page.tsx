@@ -7,6 +7,7 @@ import { PlanStatusResponse, JobStatus } from '@/types/api'
 import { useAuth } from '@/components/AuthProvider'
 import LoadingScreen from '@/components/LoadingScreen'
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 
 export default function Home() {
   const router = useRouter()
@@ -199,32 +200,7 @@ export default function Home() {
         </button>
       </main>
 
-      {/* Footer */}
-      <footer className="flex justify-between items-center px-8 py-6 border-t border-input-bg">
-        <p className="text-text-secondary text-sm">
-          © 2024 AI Blog Writer. All rights reserved.
-        </p>
-        <div className="flex gap-6">
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            About
-          </a>
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            Privacy Policy
-          </a>
-          <a
-            href="#"
-            className="text-text-secondary text-sm hover:text-accent transition-colors"
-          >
-            Contact
-          </a>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
