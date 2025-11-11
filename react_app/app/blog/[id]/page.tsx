@@ -16,10 +16,47 @@ export default function BlogPage() {
   const { user, loading: authLoading } = useAuth()
   
   const [blogStatus, setBlogStatus] = useState<BlogStatusResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [isReadMode, setIsReadMode] = useState(true)
   const [editedBlogContent, setEditedBlogContent] = useState<string>('')
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const markdownComponents = {
+    h1: ({ node, ...props }: any) => (
+      <h1 className="text-4xl font-bold text-text-primary mb-4 mt-8 first:mt-0" {...props} />
+    ),
+    h2: ({ node, ...props }: any) => (
+      <h2 className="text-3xl font-bold text-text-primary mb-3 mt-6" {...props} />
+    ),
+    h3: ({ node, ...props }: any) => (
+      <h3 className="text-2xl font-semibold text-text-primary mb-2 mt-4" {...props} />
+    ),
+    p: ({ node, ...props }: any) => (
+      <p className="text-text-secondary leading-relaxed mb-4" {...props} />
+    ),
+    ul: ({ node, ...props }: any) => (
+      <ul className="list-disc list-inside mb-4 text-text-secondary space-y-2" {...props} />
+    ),
+    ol: ({ node, ...props }: any) => (
+      <ol className="list-decimal list-inside mb-4 text-text-secondary space-y-2" {...props} />
+    ),
+    li: ({ node, ...props }: any) => (
+      <li className="text-text-secondary" {...props} />
+    ),
+    strong: ({ node, ...props }: any) => (
+      <strong className="font-semibold text-text-primary" {...props} />
+    ),
+    code: ({ node, inline, ...props }: any) => {
+      if (inline) {
+        return (
+          <code className="bg-background px-1.5 py-0.5 rounded text-accent text-sm font-mono" {...props} />
+        )
+      }
+      return (
+        <code className="block bg-background p-4 rounded-lg text-text-primary text-sm font-mono overflow-x-auto mb-4" {...props} />
+      )
+    },
+  }
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -35,21 +72,18 @@ export default function BlogPage() {
       try {
         const status = await getBlogStatus(blogId)
         setBlogStatus(status)
+        setIsInitialLoading(false)
         
         // If blog is completed or failed, stop loading and polling
         if (status.status === JobStatus.COMPLETED || status.status === JobStatus.FAILED) {
-          setIsLoading(false)
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current)
             pollingIntervalRef.current = null
           }
-        } else {
-          // Keep loading if still processing
-          setIsLoading(true)
         }
       } catch (error) {
         console.error('Error fetching blog:', error)
-        setIsLoading(false)
+        setIsInitialLoading(false)
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current)
           pollingIntervalRef.current = null
@@ -112,7 +146,7 @@ export default function BlogPage() {
     return null
   }
 
-  if (isLoading) {
+  if (isInitialLoading) {
     const loadingMessage = blogStatus?.status === JobStatus.PROCESSING
       ? 'Generating your blog post...'
       : 'Loading blog...'
@@ -137,6 +171,52 @@ export default function BlogPage() {
             Back to Home
           </button>
         </div>
+      </div>
+    )
+  }
+
+  if (blogStatus?.status === JobStatus.PROCESSING) {
+    const generatedSections = blogStatus.sections ?? []
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header showBackButton backUrl={blogStatus?.plan_job_id ? `/plan/${blogStatus.plan_job_id}` : '/'} backLabel={blogStatus?.plan_job_id ? 'Back to Plan' : 'Back to Home'} />
+        <main className="flex-1 p-8 overflow-y-auto">
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="bg-input-bg/50 border border-input-bg rounded-lg p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 border-2 border-transparent border-t-accent rounded-full animate-spin" aria-hidden="true" />
+                <h1 className="text-2xl font-semibold text-text-primary">Generating your blog post...</h1>
+              </div>
+              <p className="text-text-secondary mt-3">
+                Sections appear below as they are completed. Hang tight while we finish the remaining parts.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {generatedSections.map((section) => (
+                <div key={section.index} className="bg-input-bg/50 border border-input-bg rounded-lg overflow-hidden">
+                  <div className="px-6 py-4 border-b border-input-bg/60">
+                    <h2 className="text-xl font-semibold text-text-primary">
+                      Section {section.index}: {section.heading}
+                    </h2>
+                  </div>
+                  <div className="p-6 prose prose-invert max-w-none">
+                    <ReactMarkdown components={markdownComponents}>
+                      {section.content}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              ))}
+
+              <div className="bg-input-bg/30 border border-dashed border-input-bg rounded-lg p-6 flex items-center gap-3 animate-pulse">
+                <div className="w-4 h-4 bg-accent/60 rounded-full" aria-hidden="true" />
+                <p className="text-text-secondary">
+                  Generating next section...
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
@@ -269,44 +349,7 @@ export default function BlogPage() {
             <div className="bg-input-bg/50 rounded-lg border border-input-bg overflow-hidden">
               {isReadMode ? (
                 <div className="p-8 prose prose-invert prose-lg max-w-none">
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ node, ...props }) => (
-                        <h1 className="text-4xl font-bold text-text-primary mb-4 mt-8 first:mt-0" {...props} />
-                      ),
-                      h2: ({ node, ...props }) => (
-                        <h2 className="text-3xl font-bold text-text-primary mb-3 mt-6" {...props} />
-                      ),
-                      h3: ({ node, ...props }) => (
-                        <h3 className="text-2xl font-semibold text-text-primary mb-2 mt-4" {...props} />
-                      ),
-                      p: ({ node, ...props }) => (
-                        <p className="text-text-secondary leading-relaxed mb-4" {...props} />
-                      ),
-                      ul: ({ node, ...props }) => (
-                        <ul className="list-disc list-inside mb-4 text-text-secondary space-y-2" {...props} />
-                      ),
-                      ol: ({ node, ...props }) => (
-                        <ol className="list-decimal list-inside mb-4 text-text-secondary space-y-2" {...props} />
-                      ),
-                      li: ({ node, ...props }) => (
-                        <li className="text-text-secondary" {...props} />
-                      ),
-                      strong: ({ node, ...props }) => (
-                        <strong className="font-semibold text-text-primary" {...props} />
-                      ),
-                      code: ({ node, inline, ...props }: any) => {
-                        if (inline) {
-                          return (
-                            <code className="bg-background px-1.5 py-0.5 rounded text-accent text-sm font-mono" {...props} />
-                          )
-                        }
-                        return (
-                          <code className="block bg-background p-4 rounded-lg text-text-primary text-sm font-mono overflow-x-auto mb-4" {...props} />
-                        )
-                      },
-                    }}
-                  >
+                  <ReactMarkdown components={markdownComponents}>
                     {displayContent}
                   </ReactMarkdown>
                 </div>

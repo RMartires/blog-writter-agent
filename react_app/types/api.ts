@@ -49,6 +49,12 @@ export interface GenerateBlogRequest {
   plan_job_id?: string
 }
 
+export interface GeneratedBlogSection {
+  index: number
+  heading: string
+  content: string
+}
+
 export interface BlogStatusResponse {
   job_id: string
   status: JobStatus
@@ -57,5 +63,6 @@ export interface BlogStatusResponse {
   blog: string | null
   error: string | null
   plan_job_id?: string
+  sections?: GeneratedBlogSection[]
 }
 
