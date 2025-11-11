@@ -18,13 +18,6 @@ export default function Home() {
   const [planStatus, setPlanStatus] = useState<PlanStatusResponse | null>(null)
   const pollingIntervalRef = useRef<number | null>(null)
 
-  // Redirect to auth if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth')
-    }
-  }, [user, authLoading, router])
-
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
@@ -73,6 +66,11 @@ export default function Home() {
 
 
   const handleGenerate = async () => {
+    if (!user) {
+      router.push('/auth')
+      return
+    }
+
     if (!topic.trim()) {
       alert('Please enter a topic or keywords')
       return
@@ -100,11 +98,6 @@ export default function Home() {
   // Show loading screen while checking auth
   if (authLoading) {
     return <LoadingScreen message="Loading..." />
-  }
-
-  // Don't render if not authenticated (will redirect)
-  if (!user) {
-    return null
   }
 
   // Show loading screen while processing plan
