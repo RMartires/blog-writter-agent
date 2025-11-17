@@ -4,7 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
 
 export const metadata: Metadata = {
-  title: 'AI Blog Writer',
+  title: 'BlogCrafter',
   description: 'Generate high-quality blog posts with AI',
 }
 

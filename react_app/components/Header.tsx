@@ -29,14 +29,14 @@ export default function Header({ showBackButton = false, backUrl, backLabel = 'B
         <Link href="/" className="flex items-center gap-2">
           <Image
             src="/favicon.ico"
-            alt="AI Blog Writer logo"
+            alt="BlogCrafter logo"
             width={28}
             height={28}
             className="rounded-md"
             priority
           />
           <span className="text-text-primary text-xl font-semibold">
-            AI Blog Writer
+            BlogCrafter
           </span>
         </Link>
         {showBackButton && (

@@ -10,10 +10,10 @@ export default function AboutPage() {
 
       <main className="flex-1 px-8 py-16 flex flex-col items-center text-center gap-8">
         <h1 className="text-4xl font-bold text-text-primary">
-          About AI Blog Writer
+          About BlogCrafter
         </h1>
         <p className="max-w-3xl text-text-secondary text-lg leading-relaxed">
-          AI Blog Writer helps you transform loose ideas into polished, publish-ready blog posts.
+          BlogCrafter helps you transform loose ideas into polished, publish-ready blog posts.
           Start with a keyword or topic, review the AI-generated outline, and generate a complete
           article tailored to your voice. Built for marketers, entrepreneurs, and creators who need
           to ship content faster without sacrificing quality. Our platform combines the power of AI
@@ -27,7 +27,7 @@ export default function AboutPage() {
               Why We Built It
             </h2>
             <p>
-              Great content drives growth, but producing it consistently is hard. We built AI Blog Writer
+              Great content drives growth, but producing it consistently is hard. We built BlogCrafter
               to reimagine the content workflow for small teams that don’t have time for lengthy research
               cycles. By combining SEO insights, outline generation, and long-form drafting in one place,
               we reduce the friction between having an idea and delivering a finished article.
@@ -52,7 +52,7 @@ export default function AboutPage() {
               Designed For Real Workflows
             </h2>
             <p>
-              AI Blog Writer fits neatly into your existing publishing routine. Start with a quick draft,
+              BlogCrafter fits neatly into your existing publishing routine. Start with a quick draft,
               refine it with human insight, and hand it off to stakeholders with zero friction. Whether
               you are creating content calendars, product updates, or evergreen guides, our tools help
               you stay organized and on schedule.

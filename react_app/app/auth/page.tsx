@@ -22,7 +22,7 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-text-primary mb-2">
-            AI Blog Writer
+            BlogCrafter
           </h1>
           <p className="text-text-secondary">
             Sign in to start creating amazing blog posts

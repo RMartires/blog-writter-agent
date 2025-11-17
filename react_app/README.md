@@ -1,6 +1,6 @@
-# AI Blog Writer - Frontend
+# BlogCrafter - Frontend
 
-Next.js frontend application for the AI Blog Writer.
+Next.js frontend application for BlogCrafter.
 
 ## Getting Started
 
