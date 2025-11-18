@@ -6,6 +6,11 @@ import { AuthProvider } from '@/components/AuthProvider'
 export const metadata: Metadata = {
   title: 'BlogCrafter',
   description: 'Generate high-quality blog posts with AI',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+  },
 }
 
 export default function RootLayout({

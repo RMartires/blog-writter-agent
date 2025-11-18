@@ -97,37 +97,37 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
       <Header showBackButton backUrl="/" backLabel="Back to Home" />
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto w-full">
           {/* Page Heading */}
-          <div className="mb-8 flex items-center justify-between">
+          <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-text-primary mb-2">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-text-primary mb-2">
                 Blog Outline
               </h1>
-              <p className="text-text-secondary text-lg">
+              <p className="text-text-secondary text-sm md:text-base lg:text-lg">
                 Review and edit the plan below
               </p>
             </div>
             <button
               onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 bg-accent text-text-primary rounded-lg font-medium hover:bg-opacity-90 transition-all"
+              className="px-4 py-2 bg-accent text-text-primary rounded-lg font-medium hover:bg-opacity-90 transition-all min-h-[44px] w-full sm:w-auto"
             >
               {isEditing ? 'Done Editing' : 'Edit Outline'}
             </button>
           </div>
 
           {/* Blog Title Card */}
-          <div className="mb-6 bg-input-bg/50 rounded-lg p-6 border border-input-bg">
+          <div className="mb-4 md:mb-6 bg-input-bg/50 rounded-lg p-4 md:p-6 border border-input-bg">
             {isEditing ? (
               <input
                 type="text"
                 value={editedPlan.title}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                className="w-full text-3xl font-bold bg-background text-text-primary p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full text-xl md:text-2xl lg:text-3xl font-bold bg-background text-text-primary p-2 md:p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-sm md:text-base"
               />
             ) : (
-              <h2 className="text-3xl font-bold text-text-primary">
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-text-primary">
                 {editedPlan.title}
               </h2>
             )}
@@ -135,8 +135,8 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
 
           {/* Introduction Card */}
           {editedPlan.intro && (
-            <div className="mb-8 bg-input-bg/50 rounded-lg p-6 border border-input-bg">
-              <label className="block text-text-secondary text-sm font-medium mb-3">
+            <div className="mb-6 md:mb-8 bg-input-bg/50 rounded-lg p-4 md:p-6 border border-input-bg">
+              <label className="block text-text-secondary text-xs md:text-sm font-medium mb-3">
                 Introduction
               </label>
               {isEditing ? (
@@ -144,10 +144,10 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
                   value={editedPlan.intro}
                   onChange={(e) => handleIntroChange(e.target.value)}
                   placeholder="Enter introduction..."
-                  className="w-full min-h-[100px] bg-background text-text-primary p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent resize-y"
+                  className="w-full min-h-[100px] bg-background text-text-primary p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent resize-y text-sm md:text-base"
                 />
               ) : (
-                <p className="text-text-secondary text-lg leading-relaxed">
+                <p className="text-text-secondary text-sm md:text-base lg:text-lg leading-relaxed">
                   {editedPlan.intro}
                 </p>
               )}
@@ -155,14 +155,14 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
           )}
 
           {/* Sections */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {editedPlan.sections.map((section, sectionIdx) => (
               <div
                 key={sectionIdx}
                 className="relative bg-input-bg/60 rounded-lg border-l-4 border-accent overflow-hidden shadow-lg"
               >
                 {/* Section Content */}
-                <div className="p-6">
+                <div className="p-4 md:p-6">
                   {/* Section Heading */}
                   <div className="mb-3">
                     {isEditing ? (
@@ -170,10 +170,10 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
                         type="text"
                         value={section.heading}
                         onChange={(e) => handleSectionHeadingChange(sectionIdx, e.target.value)}
-                        className="w-full text-2xl font-bold bg-background text-text-primary p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
+                        className="w-full text-lg md:text-xl lg:text-2xl font-bold bg-background text-text-primary p-2 md:p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-sm md:text-base"
                       />
                     ) : (
-                      <h2 className="text-2xl font-bold text-text-primary">
+                      <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-text-primary">
                         {section.heading}
                       </h2>
                     )}
@@ -181,16 +181,16 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
 
                   {/* Section Description */}
                   {section.description && (
-                    <div className="mb-5">
+                    <div className="mb-4 md:mb-5">
                       {isEditing ? (
                         <textarea
                           value={section.description}
                           onChange={(e) => handleSectionDescriptionChange(sectionIdx, e.target.value)}
                           placeholder="Section description..."
-                          className="w-full min-h-[60px] bg-background text-text-secondary p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent resize-y"
+                          className="w-full min-h-[60px] bg-background text-text-secondary p-2 md:p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent resize-y text-sm"
                         />
                       ) : (
-                        <p className="text-text-secondary leading-relaxed">
+                        <p className="text-text-secondary text-sm md:text-base leading-relaxed">
                           {section.description}
                         </p>
                       )}
@@ -199,29 +199,29 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
 
                   {/* Subsections */}
                   {section.subsections.length > 0 && (
-                    <div className="relative mt-6 space-y-5">
+                    <div className="relative mt-4 md:mt-6 space-y-4 md:space-y-5">
                       {/* Extend the green line through subsections */}
                       {/* <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent/40"></div> */}
-                      <div className="pl-6 space-y-5">
+                      <div className="pl-3 md:pl-6 space-y-4 md:space-y-5">
                         {section.subsections.map((subsection, subIdx) => (
                           <div
                             key={subIdx}
-                            className="relative pl-6 border-l-2 border-accent/60"
+                            className="relative pl-3 md:pl-6 border-l-2 border-accent/60"
                           >
                             {isEditing ? (
-                              <div className="space-y-3">
-                                <div className="flex items-center gap-3">
+                              <div className="space-y-2 md:space-y-3">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
                                   <input
                                     type="text"
                                     value={subsection.heading}
                                     onChange={(e) =>
                                       handleSubsectionHeadingChange(sectionIdx, subIdx, e.target.value)
                                     }
-                                    className="flex-1 text-xl font-semibold bg-background text-text-primary p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
+                                    className="flex-1 text-base md:text-lg lg:text-xl font-semibold bg-background text-text-primary p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-sm"
                                   />
                                   <button
                                     onClick={() => handleRemoveSubsection(sectionIdx, subIdx)}
-                                    className="px-3 py-1.5 text-sm text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg hover:bg-red-400/10 transition-all"
+                                    className="px-3 py-1.5 text-xs md:text-sm text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg hover:bg-red-400/10 transition-all min-h-[44px] sm:min-h-0"
                                   >
                                     Remove
                                   </button>
@@ -236,16 +236,16 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
                                     )
                                   }
                                   placeholder="Subsection description..."
-                                  className="w-full min-h-[50px] bg-background text-text-secondary p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-y"
+                                  className="w-full min-h-[50px] bg-background text-text-secondary p-2 rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-y"
                                 />
                               </div>
                             ) : (
                               <div>
-                                <h3 className="text-xl font-semibold text-text-primary mb-2">
+                                <h3 className="text-base md:text-lg lg:text-xl font-semibold text-text-primary mb-2">
                                   {subsection.heading}
                                 </h3>
                                 {subsection.description && (
-                                  <p className="text-text-secondary text-sm leading-relaxed">
+                                  <p className="text-text-secondary text-xs md:text-sm leading-relaxed">
                                     {subsection.description}
                                   </p>
                                 )}
@@ -261,7 +261,7 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
                   {isEditing && (
                     <button
                       onClick={() => handleAddSubsection(sectionIdx)}
-                      className="mt-6 ml-6 px-4 py-2 text-sm text-accent border border-accent/40 rounded-lg hover:bg-accent/10 transition-all font-medium"
+                      className="mt-4 md:mt-6 ml-3 md:ml-6 px-3 md:px-4 py-2 text-xs md:text-sm text-accent border border-accent/40 rounded-lg hover:bg-accent/10 transition-all font-medium min-h-[44px]"
                     >
                       + Add Subsection
                     </button>
@@ -272,16 +272,16 @@ export default function PlanReviewScreen({ plan, onBack, onGenerate }: PlanRevie
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4 mt-12 pt-8 border-t border-input-bg">
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-8 md:mt-12 pt-6 md:pt-8 border-t border-input-bg">
             <button
               onClick={onBack}
-              className="px-8 py-3 border-2 border-text-secondary text-text-secondary rounded-lg font-semibold hover:border-accent hover:text-accent transition-all"
+              className="w-full sm:w-auto px-6 md:px-8 py-3 border-2 border-text-secondary text-text-secondary rounded-lg font-semibold hover:border-accent hover:text-accent transition-all min-h-[44px]"
             >
               Back
             </button>
             <button
               onClick={() => onGenerate(editedPlan)}
-              className="flex-1 px-8 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl"
+              className="flex-1 px-6 md:px-8 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl min-h-[44px]"
             >
               Generate Blog Post
             </button>

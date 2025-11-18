@@ -23,13 +23,13 @@ export default function BlogPage() {
 
   const markdownComponents = {
     h1: ({ node, ...props }: any) => (
-      <h1 className="text-4xl font-bold text-text-primary mb-4 mt-8 first:mt-0" {...props} />
+      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-text-primary mb-4 mt-8 first:mt-0" {...props} />
     ),
     h2: ({ node, ...props }: any) => (
-      <h2 className="text-3xl font-bold text-text-primary mb-3 mt-6" {...props} />
+      <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-text-primary mb-3 mt-6" {...props} />
     ),
     h3: ({ node, ...props }: any) => (
-      <h3 className="text-2xl font-semibold text-text-primary mb-2 mt-4" {...props} />
+      <h3 className="text-lg md:text-xl lg:text-2xl font-semibold text-text-primary mb-2 mt-4" {...props} />
     ),
     p: ({ node, ...props }: any) => (
       <p className="text-text-secondary leading-relaxed mb-4" {...props} />
@@ -49,11 +49,11 @@ export default function BlogPage() {
     code: ({ node, inline, ...props }: any) => {
       if (inline) {
         return (
-          <code className="bg-background px-1.5 py-0.5 rounded text-accent text-sm font-mono" {...props} />
+          <code className="bg-background px-1.5 py-0.5 rounded text-accent text-xs md:text-sm font-mono" {...props} />
         )
       }
       return (
-        <code className="block bg-background p-4 rounded-lg text-text-primary text-sm font-mono overflow-x-auto mb-4" {...props} />
+        <code className="block bg-background p-3 md:p-4 rounded-lg text-text-primary text-xs md:text-sm font-mono overflow-x-auto mb-4" {...props} />
       )
     },
   }
@@ -156,17 +156,17 @@ export default function BlogPage() {
   // Show error if failed
   if (blogStatus?.status === JobStatus.FAILED) {
     return (
-      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-8">
+      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-4 md:px-8">
         <div className="max-w-2xl w-full text-center">
-          <h1 className="text-3xl font-bold text-text-primary mb-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-4">
             Blog Generation Failed
           </h1>
-          <p className="text-text-secondary mb-8">
+          <p className="text-text-secondary mb-8 text-sm md:text-base">
             {blogStatus.error || 'An unknown error occurred'}
           </p>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all"
+            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all min-h-[44px]"
           >
             Back to Home
           </button>
@@ -180,14 +180,14 @@ export default function BlogPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header showBackButton backUrl={blogStatus?.plan_job_id ? `/plan/${blogStatus.plan_job_id}` : '/'} backLabel={blogStatus?.plan_job_id ? 'Back to Plan' : 'Back to Home'} />
-        <main className="flex-1 p-8 overflow-y-auto">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="bg-input-bg/50 border border-input-bg rounded-lg p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 border-2 border-transparent border-t-accent rounded-full animate-spin" aria-hidden="true" />
-                <h1 className="text-2xl font-semibold text-text-primary">Generating your blog post...</h1>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+          <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
+            <div className="bg-input-bg/50 border border-input-bg rounded-lg p-4 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-4 h-4 border-2 border-transparent border-t-accent rounded-full animate-spin flex-shrink-0" aria-hidden="true" />
+                <h1 className="text-lg md:text-xl lg:text-2xl font-semibold text-text-primary">Generating your blog post...</h1>
               </div>
-              <p className="text-text-secondary mt-3">
+              <p className="text-text-secondary mt-3 text-sm md:text-base">
                 Sections appear below as they are completed. Hang tight while we finish the remaining parts.
               </p>
             </div>
@@ -195,12 +195,12 @@ export default function BlogPage() {
             <div className="space-y-4">
               {generatedSections.map((section) => (
                 <div key={section.index} className="bg-input-bg/50 border border-input-bg rounded-lg overflow-hidden">
-                  <div className="px-6 py-4 border-b border-input-bg/60">
-                    <h2 className="text-xl font-semibold text-text-primary">
+                  <div className="px-4 md:px-6 py-3 md:py-4 border-b border-input-bg/60">
+                    <h2 className="text-base md:text-lg lg:text-xl font-semibold text-text-primary">
                       Section {section.index}: {section.heading}
                     </h2>
                   </div>
-                  <div className="p-6 prose prose-invert max-w-none">
+                  <div className="p-4 md:p-6 prose prose-invert max-w-none">
                     <ReactMarkdown components={markdownComponents}>
                       {section.content}
                     </ReactMarkdown>
@@ -208,9 +208,9 @@ export default function BlogPage() {
                 </div>
               ))}
 
-              <div className="bg-input-bg/30 border border-dashed border-input-bg rounded-lg p-6 flex items-center gap-3 animate-pulse">
-                <div className="w-4 h-4 bg-accent/60 rounded-full" aria-hidden="true" />
-                <p className="text-text-secondary">
+              <div className="bg-input-bg/30 border border-dashed border-input-bg rounded-lg p-4 md:p-6 flex items-center gap-2 md:gap-3 animate-pulse">
+                <div className="w-4 h-4 bg-accent/60 rounded-full flex-shrink-0" aria-hidden="true" />
+                <p className="text-text-secondary text-sm md:text-base">
                   Generating next section...
                 </p>
               </div>
@@ -229,136 +229,139 @@ export default function BlogPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header showBackButton backUrl={blogStatus?.plan_job_id ? `/plan/${blogStatus.plan_job_id}` : '/'} backLabel={blogStatus?.plan_job_id ? 'Back to Plan' : 'Back to Home'} />
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
             {/* Action Bar */}
-            <div className="mb-6 flex items-center justify-end">
-              <div className="flex items-center gap-3">
-                {/* Read/Edit Mode Toggle */}
-                <div className="flex items-center gap-2 bg-input-bg rounded-lg p-1">
-                  <button
-                    onClick={() => setIsReadMode(true)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                      isReadMode
-                        ? 'bg-accent text-text-primary'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M2 3H8C9.06087 3 10.0783 3.42143 10.8284 4.17157C11.5786 4.92172 12 5.93913 12 7V21C12 20.2044 11.6839 19.4413 11.1213 18.8787C10.5587 18.3161 9.79565 18 9 18H2V3Z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M22 3H16C14.9391 3 13.9217 3.42143 13.1716 4.17157C12.4214 4.92172 12 5.93913 12 7V21C12 20.2044 12.3161 19.4413 12.8787 18.8787C13.4413 18.3161 14.2044 18 15 18H22V3Z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      Read Mode
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setIsReadMode(false)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                      !isReadMode
-                        ? 'bg-accent text-text-primary'
-                        : 'text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      Edit Mode
-                    </div>
-                  </button>
-                </div>
-
-                {/* Export Button */}
+            <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+              {/* Read/Edit Mode Toggle */}
+              <div className="flex items-center gap-2 bg-input-bg rounded-lg p-1 w-full sm:w-auto">
                 <button
-                  onClick={handleExportBlog}
-                  className="px-4 py-2 bg-accent text-text-primary rounded-lg font-medium hover:bg-opacity-90 transition-all flex items-center gap-2"
+                  onClick={() => setIsReadMode(true)}
+                  className={`flex-1 sm:flex-none px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-all min-h-[44px] ${
+                    isReadMode
+                      ? 'bg-accent text-text-primary'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
                 >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M7 10L12 15L17 10"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 15V3"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Export
+                  <div className="flex items-center justify-center gap-1 md:gap-2">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-3 h-3 md:w-4 md:h-4"
+                    >
+                      <path
+                        d="M2 3H8C9.06087 3 10.0783 3.42143 10.8284 4.17157C11.5786 4.92172 12 5.93913 12 7V21C12 20.2044 11.6839 19.4413 11.1213 18.8787C10.5587 18.3161 9.79565 18 9 18H2V3Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M22 3H16C14.9391 3 13.9217 3.42143 13.1716 4.17157C12.4214 4.92172 12 5.93913 12 7V21C12 20.2044 12.3161 19.4413 12.8787 18.8787C13.4413 18.3161 14.2044 18 15 18H22V3Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="hidden sm:inline">Read Mode</span>
+                    <span className="sm:hidden">Read</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setIsReadMode(false)}
+                  className={`flex-1 sm:flex-none px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-all min-h-[44px] ${
+                    !isReadMode
+                      ? 'bg-accent text-text-primary'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-1 md:gap-2">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-3 h-3 md:w-4 md:h-4"
+                    >
+                      <path
+                        d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="hidden sm:inline">Edit Mode</span>
+                    <span className="sm:hidden">Edit</span>
+                  </div>
                 </button>
               </div>
+
+              {/* Export Button */}
+              <button
+                onClick={handleExportBlog}
+                className="px-4 md:px-6 py-2 md:py-3 bg-accent text-text-primary rounded-lg font-medium hover:bg-opacity-90 transition-all flex items-center justify-center gap-2 min-h-[44px] w-full sm:w-auto"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4"
+                >
+                  <path
+                    d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7 10L12 15L17 10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 15V3"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Export
+              </button>
             </div>
 
             {/* Blog Content */}
             <div className="bg-input-bg/50 rounded-lg border border-input-bg overflow-hidden">
               {isReadMode ? (
-                <div className="p-8 prose prose-invert prose-lg max-w-none">
+                <div className="p-4 md:p-6 lg:p-8 prose prose-invert prose-lg max-w-none">
                   <ReactMarkdown components={markdownComponents}>
                     {displayContent}
                   </ReactMarkdown>
                 </div>
               ) : (
-                <div className="p-8">
+                <div className="p-4 md:p-6 lg:p-8">
                   <textarea
                     value={editedBlogContent}
                     onChange={(e) => setEditedBlogContent(e.target.value)}
-                    className="w-full min-h-[600px] bg-background text-text-primary font-mono text-sm leading-relaxed p-4 rounded-lg border border-input-bg focus:outline-none focus:ring-2 focus:ring-accent resize-y"
+                    className="w-full min-h-[400px] md:min-h-[600px] bg-background text-text-primary font-mono text-xs md:text-sm leading-relaxed p-3 md:p-4 rounded-lg border border-input-bg focus:outline-none focus:ring-2 focus:ring-accent resize-y"
                     placeholder="Edit your blog post markdown here..."
                   />
                 </div>

@@ -18,17 +18,17 @@ export default function AuthPage() {
   }, [user, router])
 
   return (
-    <div className="min-h-screen flex flex-col bg-background items-center justify-center px-8">
+    <div className="min-h-screen flex flex-col bg-background items-center justify-center px-4 md:px-8">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-text-primary mb-2">
+        <div className="mb-6 md:mb-8 text-center">
+          <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-2">
             BlogCrafter
           </h1>
-          <p className="text-text-secondary">
+          <p className="text-text-secondary text-sm md:text-base">
             Sign in to start creating amazing blog posts
           </p>
         </div>
-        <div className="bg-input-bg rounded-lg p-6">
+        <div className="bg-input-bg rounded-lg p-4 md:p-6">
           <Auth
             supabaseClient={supabase}
             appearance={{

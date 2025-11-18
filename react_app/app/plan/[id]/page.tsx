@@ -139,17 +139,17 @@ export default function PlanPage() {
   // Show error if failed
   if (planStatus?.status === JobStatus.FAILED) {
     return (
-      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-8">
+      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-4 md:px-8">
         <div className="max-w-2xl w-full text-center">
-          <h1 className="text-3xl font-bold text-text-primary mb-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-4">
             Plan Generation Failed
           </h1>
-          <p className="text-text-secondary mb-8">
+          <p className="text-text-secondary mb-8 text-sm md:text-base">
             {planStatus.error || 'An unknown error occurred'}
           </p>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all"
+            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all min-h-[44px]"
           >
             Back to Home
           </button>

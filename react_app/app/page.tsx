@@ -119,12 +119,12 @@ export default function Home() {
   // Show error if failed
   if (planStatus?.status === JobStatus.FAILED) {
     return (
-      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-8">
+      <div className="min-h-screen flex flex-col bg-background items-center justify-center px-4 md:px-8">
         <div className="max-w-2xl w-full text-center">
-          <h1 className="text-3xl font-bold text-text-primary mb-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-4">
             Plan Generation Failed
           </h1>
-          <p className="text-text-secondary mb-8">
+          <p className="text-text-secondary mb-8 text-sm md:text-base">
             {planStatus.error || 'An unknown error occurred'}
           </p>
           <button
@@ -132,7 +132,7 @@ export default function Home() {
               setPlanStatus(null)
               setJobId(null)
             }}
-            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all"
+            className="px-6 py-3 bg-accent text-text-primary rounded-lg font-semibold hover:bg-opacity-90 transition-all min-h-[44px]"
           >
             Try Again
           </button>
@@ -146,26 +146,26 @@ export default function Home() {
       <Header />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-8 py-12">
-        <h1 className="text-5xl font-bold text-text-primary text-center mb-4">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 md:px-8 py-8 md:py-12">
+        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-text-primary text-center mb-4 px-4">
           Unleash Your Next Great Blog Post
         </h1>
-        <p className="text-text-secondary text-lg text-center mb-8">
+        <p className="text-text-secondary text-base md:text-lg text-center mb-8 px-4">
           Enter a few keywords or a topic, and let our AI do the rest.
         </p>
 
         {/* Mode Selection */}
         {/* Input Field */}
-        <div className="w-full max-w-2xl mb-6">
+        <div className="w-full max-w-2xl mb-6 px-4">
           <div className="relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+            <div className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2">
               <svg
                 width="20"
                 height="20"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="text-text-secondary"
+                className="text-text-secondary w-4 h-4 md:w-5 md:h-5"
               >
                 <path
                   d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
@@ -186,7 +186,7 @@ export default function Home() {
                 }
               }}
               placeholder="e.g., 'future of remote work trends'"
-              className="w-full pl-12 pr-4 py-4 rounded-lg bg-input-bg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full pl-10 md:pl-12 pr-4 py-3 md:py-4 rounded-lg bg-input-bg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent text-sm md:text-base"
             />
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function Home() {
         {/* Generate Button */}
         <button
           onClick={handleGenerate}
-          className="px-8 py-4 bg-accent text-text-primary rounded-lg font-semibold text-lg hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl"
+          className="px-6 md:px-8 py-3 md:py-4 bg-accent text-text-primary rounded-lg font-semibold text-base md:text-lg hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl min-h-[44px]"
         >
           Generate Blog
         </button>
