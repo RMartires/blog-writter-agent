@@ -5,6 +5,7 @@ from typing import List, Optional
 from agents.lib.openrouter_wrapper import OpenRouterLLM
 from agents.models import BlogPlan, BlogSection, SubSection
 import config
+import time
 
 
 class WriterAgent:
@@ -31,7 +32,8 @@ class WriterAgent:
             session_id=session_id,
             min_request_interval=config.API_MIN_REQUEST_INTERVAL,
             max_retries=config.API_MAX_RETRIES,
-            retry_delay=config.API_RETRY_DELAY
+            retry_delay=config.API_RETRY_DELAY,
+            fallback_models=config.OPENROUTER_FALLBACK_MODELS
         )
     
         
@@ -498,20 +500,48 @@ Write the complete subsection starting with: ### {subsection_heading}
             # Build previous content context for this subsection
             previous_content = "\n\n".join(subsection_contents)
             
-            try:
-                subsection_content = self.generate_subsection(
-                    subsection=subsection,
-                    section_heading=section.heading,
-                    topic=topic,
-                    context_docs=subsection_context,
-                    previous_content=previous_content
-                )
-                subsection_contents.append(subsection_content)
-                print(f"        ✓ Generated subsection ({len(subsection_content.split())} words)")
-            except Exception as e:
-                print(f"        ❌ Error generating subsection '{subsection.heading}': {e}")
-                # Add a placeholder for failed subsection
-                subsection_contents.append(f"### {subsection.heading}\n\n*Content generation failed for this subsection.*")
+            # Retry logic for subsection generation
+            max_retries = 3
+            subsection_content = None
+            last_error = None
+            
+            for retry_attempt in range(max_retries):
+                try:
+                    subsection_content = self.generate_subsection(
+                        subsection=subsection,
+                        section_heading=section.heading,
+                        topic=topic,
+                        context_docs=subsection_context,
+                        previous_content=previous_content
+                    )
+                    subsection_contents.append(subsection_content)
+                    print(f"        ✓ Generated subsection ({len(subsection_content.split())} words)")
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e)
+                    is_rate_limit = (
+                        "429" in error_str or 
+                        "rate limit" in error_str.lower() or
+                        "rate-limited" in error_str.lower() or
+                        "too many requests" in error_str.lower()
+                    )
+                    
+                    if is_rate_limit and retry_attempt < max_retries - 1:
+                        # Wait before retrying on rate limit (exponential backoff)
+                        wait_time = 20 * (retry_attempt + 1)  # 20s, 40s, 60s
+                        print(f"        ⚠️  Rate limit error (attempt {retry_attempt + 1}/{max_retries}). Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                    elif retry_attempt < max_retries - 1:
+                        # Non-rate-limit error, wait shorter time
+                        wait_time = 2 * (retry_attempt + 1)  # 2s, 4s, 6s
+                        print(f"        ⚠️  Error generating subsection (attempt {retry_attempt + 1}/{max_retries}). Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        # All retries exhausted
+                        print(f"        ❌ Error generating subsection '{subsection.heading}' after {max_retries} attempts: {last_error}")
+                        # Add a placeholder for failed subsection
+                        subsection_contents.append(f"### {subsection.heading}\n\n*Content generation failed for this subsection after {max_retries} attempts.*")
         
         # Combine all subsection content
         section_content += "\n\n".join(subsection_contents)
