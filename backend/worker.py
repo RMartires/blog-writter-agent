@@ -5,7 +5,7 @@ import time
 import logging
 import sys
 import os
-from threading import Thread
+from threading import Thread, Semaphore
 from typing import Optional, List, Dict, Any, Tuple, Callable
 
 # Add parent directory to path to import agents
@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 # Maximum length for research content
 MAX_RESEARCH_LENGTH = 131072
+
+# Global semaphore to ensure only one job processes at a time across all workers
+# This prevents concurrent API calls that could hit rate limits
+_global_job_semaphore = Semaphore(1)
 
 
 def trim_research_content(research_data: List[Dict[str, Any]], max_length: int = MAX_RESEARCH_LENGTH) -> str:
@@ -127,6 +131,8 @@ class PlanGenerationWorker:
                     
                     logger.info(f"Processing job {job_id} for keyword: {keyword}")
                     
+                    # Acquire global semaphore to ensure only one job processes at a time
+                    _global_job_semaphore.acquire()
                     try:
                         # Process the job
                         plan, research_data = self._generate_plan(keyword, session_id)
@@ -153,6 +159,9 @@ class PlanGenerationWorker:
                             status="failed",
                             error=error_msg
                         )
+                    finally:
+                        # Always release semaphore, even on error
+                        _global_job_semaphore.release()
                 
                 # Wait before polling again
                 time.sleep(self.poll_interval)
@@ -274,6 +283,8 @@ class BlogGenerationWorker:
                     
                     logger.info(f"Processing blog job {job_id}")
                     
+                    # Acquire global semaphore to ensure only one job processes at a time
+                    _global_job_semaphore.acquire()
                     try:
                         # Parse plan from dict
                         plan = BlogPlan(**plan_dict)
@@ -334,6 +345,9 @@ class BlogGenerationWorker:
                             status="failed",
                             error=error_msg
                         )
+                    finally:
+                        # Always release semaphore, even on error
+                        _global_job_semaphore.release()
                 
                 # Wait before polling again
                 time.sleep(self.poll_interval)

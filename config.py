@@ -15,10 +15,16 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # User will change this model manually as needed
 OPENROUTER_MODEL = "openai/gpt-oss-20b:free"  # Free tier model
-# openai/gpt-oss-20b:free
-# deepseek/deepseek-chat-v3.1:free
-# deepseek/deepseek-r1-0528-qwen3-8b:free
-# qwen/qwen3-235b-a22b:free
+
+# Fallback models for automatic switching on rate limit errors
+OPENROUTER_FALLBACK_MODELS = [
+    "openai/gpt-oss-20b:free",
+    "tngtech/deepseek-r1t2-chimera:free",
+    "deepseek/deepseek-r1-0528-qwen3-8b:free",
+    "qwen/qwen3-235b-a22b:free",
+    "deepseek/deepseek-r1-0528:free",
+    "qwen/qwen3-30b-a3b:free"
+]
 
 # Iteration and Scoring Configuration
 MAX_ITERATIONS = 2  # Maximum number of write-score-rewrite cycles

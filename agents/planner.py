@@ -30,7 +30,8 @@ class PlannerAgent:
             session_id=session_id,
             min_request_interval=config.API_MIN_REQUEST_INTERVAL,
             max_retries=config.API_MAX_RETRIES,
-            retry_delay=config.API_RETRY_DELAY
+            retry_delay=config.API_RETRY_DELAY,
+            fallback_models=config.OPENROUTER_FALLBACK_MODELS
         )
     
     def create_plan(
